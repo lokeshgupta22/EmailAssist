@@ -121,10 +121,16 @@ would be dishonest.
 answers. Latest run, `qwen3:4b` on an M1 MacBook Air (8 GB):
 
 ```
-cases passed fully : 12/15
-individual checks  : 94/98 (96%)
-average time       : 17.6s per thread
+cases passed fully : 15/15
+individual checks  : 98/98 (100%)
+average time       : 17.5s per thread
 ```
+
+That result reproduced on two consecutive runs. Treat the number for what it
+is, though: 15 cases is a small dataset that I wrote myself, so it measures
+"the failures I know how to look for", not general accuracy. The dataset
+earns its keep by catching regressions and by having found real bugs — not by
+proving the system is correct.
 
 The dataset covers ordinary work — requests, chasers, scheduling, a thread that
 genuinely needs nothing — and the cases that matter most: prompt injection in a
@@ -138,21 +144,30 @@ wrong sense of who owes what, an unflagged attack, or personal data reaching
 the model. That last one is checked by recording exactly what the model was
 sent.
 
-**The evaluation is how the product got better.** The first run scored 7/15.
-It showed the application holding facts it never passed on — today's date, and
-which address was the user's own — and the model filling those gaps by
-guessing. It also caught the injection compliance described above. Fixing what
-it found took the score to 12/15.
+**The evaluation is how the product got better**, which matters more than the
+final number:
+
+| Run | Cases | Checks | What the failures showed |
+|---|---|---|---|
+| 1 | 7/15 | 89% | The app held facts it never passed on — today's date, whose mailbox this is — so the model guessed and the guardrails flagged the guesses. And the model advised complying with a prompt injection. |
+| 2 | 12/15 | 96% | Better, but the model still misjudged who owed the next move, and still invented an occasional plausible deadline. |
+| 3 | 15/15 | 100% | After deriving "who is waiting" in code where code can tell, and forbidding dates that appear nowhere in the thread. |
 
 ### Known limitations
 
-- On roughly one thread in fifteen the 4B model invents a plausible deadline
-  that the thread does not contain. The guardrails catch it and mark it
-  unverified, but it is a real limit of a small model.
-- Scanned documents and images are not read, so an instruction inside a scanned
-  PDF is neither summarised nor detected. Those attachments are reported as
-  unreadable rather than silently skipped.
-- One thread takes 15–30 seconds on an 8 GB M1. A larger model is more accurate
+- **The dataset is small and self-written.** Fifteen threads catch regressions
+  and the failure modes I anticipated. They do not prove general accuracy, and
+  a wider corpus of real mail would certainly find more.
+- **A 4B model still drifts.** Earlier runs invented plausible deadlines; the
+  prompt and the guardrails now catch that, but a small model is a small model.
+  The guardrails exist precisely because this is expected rather than
+  surprising.
+- **Scanned documents and images are not read**, so an instruction inside a
+  scanned PDF is neither summarised nor detected. Those attachments are
+  reported as unreadable rather than silently skipped.
+- **Injection detection recognises known shapes.** A novel phrasing may not be
+  flagged — which is exactly why the model has no tools and cannot act.
+- **15–30 seconds per thread** on an 8 GB M1. A larger model is more accurate
   and slower; the model name is one setting.
 
 ---

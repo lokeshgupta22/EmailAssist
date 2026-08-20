@@ -239,3 +239,23 @@ class TestApiDates:
         entry = client.get("/api/history").json()["entries"][0]
 
         assert datetime.fromisoformat(entry["created_at"]).tzinfo is not None
+
+
+class TestDefaultWiring:
+    """The production factory must build a real app without any test doubles."""
+
+    def test_the_app_builds_with_its_own_defaults(self, tmp_path: Path):
+        from app.main import create_app
+
+        app = create_app(settings=Settings(database_path=tmp_path / "h.db"))
+
+        assert app.title == "Email Agent"
+
+    def test_the_default_summarizer_is_the_real_one(self):
+        from app.main import _default_summarizer
+        from app.pipeline.summarizer import Summarizer
+
+        assert isinstance(_default_summarizer(Settings()), Summarizer)
+
+    def test_deleting_an_absent_entry_gives_a_not_found(self, store: HistoryStore):
+        assert client_for(store).delete("/api/history/999").status_code == 404
