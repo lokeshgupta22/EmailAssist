@@ -1,0 +1,23 @@
+# Direct runtime dependencies, pinned for reproducible installs.
+# Everything here runs locally; none of these packages send data off the machine.
+
+# Web layer
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+
+# Validation / configuration
+pydantic==2.13.4
+pydantic-settings==2.15.0
+
+# Email + attachment parsing
+beautifulsoup4==4.15.0
+pypdf==6.16.1
+python-docx==1.2.0
+puremagic==1.30
+
+# Deterministic enrichment
+dateparser==1.4.2
+
+# Local model transport (talks to Ollama on 127.0.0.1)
+httpx==0.28.1
