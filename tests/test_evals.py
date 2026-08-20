@@ -2,6 +2,7 @@
 
 import json
 
+from app.config import Settings
 from app.models import (
     AnalysisResult,
     Attachment,
@@ -10,6 +11,7 @@ from app.models import (
     Summary,
     ThreadFacts,
 )
+from app.pipeline.summarizer import SummaryResult
 from evals.run_evals import FIXTURE_DIR, GOLDEN_PATH, score_case
 
 GOLDEN = json.loads(GOLDEN_PATH.read_text())
@@ -55,6 +57,51 @@ class TestDataset:
         assert "injection" in described
         assert "executable" in described
         assert "macro" in described
+
+
+class TestRecordingSummarizer:
+    """The harness wraps the real summarizer, so it must accept the same call."""
+
+    def test_it_forwards_every_argument_the_pipeline_passes(self):
+        from app.pipeline.orchestrator import Pipeline
+        from evals.run_evals import RecordingSummarizer
+
+        class Inner:
+            canary = "session-test"
+
+            def __init__(self):
+                self.received = None
+
+            def summarize(self, thread, facts, warnings=None):
+                self.received = (thread, facts, warnings)
+                return SummaryResult(summary=result_with().summary, model_used="fake-model")
+
+        inner = Inner()
+        recorder = RecordingSummarizer(inner)
+        pipeline = Pipeline(summarizer=recorder, settings=Settings())
+
+        pipeline.analyse([(FIXTURE_DIR / "01_simple_request.eml").read_bytes()])
+
+        assert inner.received is not None, "the wrapper must reach the real summarizer"
+        assert recorder.seen, "the wrapper must record what the model was shown"
+        assert recorder.canary == "session-test"
+
+    def test_what_the_model_saw_includes_headers_and_attachments(self):
+        from app.models import EmailMessage, EmailThread
+        from evals.run_evals import _thread_text
+
+        thread = EmailThread(
+            subject="s",
+            messages=[
+                EmailMessage(sender="a@example.com", recipients=["b@example.com"], body="hello")
+            ],
+        )
+
+        text = _thread_text(thread)
+
+        assert "a@example.com" in text
+        assert "b@example.com" in text
+        assert "hello" in text
 
 
 class TestScoring:

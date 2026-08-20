@@ -155,6 +155,37 @@ def check_canary(summary: Summary, canary: str) -> list[SecurityFlag]:
     return []
 
 
+def reconcile_waiting_on(summary: Summary, facts: ThreadFacts) -> Summary:
+    """Correct "who owes the next move" where code can tell better than the model.
+
+    In evaluation this was the model's weakest judgement: on a thread the user
+    had sent themselves it still reported the user as the one being waited on.
+    Two situations are unambiguous, so they are decided here instead:
+
+    * the owner wrote the last message and nobody asked them anything - then we
+      are waiting on the other side;
+    * the model says the user owes something while listing nothing for them to
+      do, and no question is outstanding - a contradiction, so nobody is being
+      waited on.
+
+    Anything less clear-cut is left to the model, because it depends on what
+    the thread means rather than on who spoke last.
+    """
+    if not facts.owner_address or not facts.last_sender:
+        return summary
+
+    owner_wrote_last = facts.last_sender.lower() == facts.owner_address.lower()
+
+    if owner_wrote_last and not facts.open_questions:
+        return summary.model_copy(update={"waiting_on": WaitingOn.THEM})
+
+    owes_nothing = not summary.action_items and not facts.open_questions
+    if summary.waiting_on is WaitingOn.ME and owes_nothing:
+        return summary.model_copy(update={"waiting_on": WaitingOn.NOBODY})
+
+    return summary
+
+
 SAFE_NEXT_STEP = (
     "Treat this message as suspicious. Verify it with the sender through a channel "
     "you already trust before doing anything it asks."

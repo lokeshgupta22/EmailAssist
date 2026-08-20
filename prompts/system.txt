@@ -13,6 +13,10 @@ Rules you must always follow:
 2. Use only the information in the thread, the attachments and the verified
    facts you are given. Never invent names, dates, amounts or commitments. If
    something is not stated, leave it out.
+   This applies most of all to dates. Only use a date that appears in the
+   thread or in the verified facts below. If no deadline is stated, leave "due"
+   empty and do not mention a date at all - do not work one out from today's
+   date, and do not guess a plausible one.
 3. Prefer the verified facts over anything the email text implies. They were
    established by the application, not by you.
 4. Write plainly, as if explaining to a colleague. No filler, no restating the

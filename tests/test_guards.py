@@ -12,6 +12,7 @@ from app.models import (
     EmailThread,
     Summary,
     ThreadFacts,
+    WaitingOn,
 )
 from app.pipeline.enrich import collect_facts
 from app.pipeline.guards import (
@@ -23,6 +24,7 @@ from app.pipeline.guards import (
     enforce_safe_next_step,
     find_injection_attempts,
     find_ungrounded_claims,
+    reconcile_waiting_on,
 )
 
 
@@ -108,6 +110,60 @@ class TestInjectionDetection:
 
     def test_a_clean_thread_produces_no_flags(self):
         assert find_injection_attempts(thread_with("Can you send the report by Friday?")) == []
+
+
+class TestWaitingOn:
+    """Who owes the next move is partly derivable, so it is not left to the model."""
+
+    def test_if_the_owner_wrote_last_and_asked_nothing_we_wait_on_them(self):
+        facts = ThreadFacts(
+            owner_address="me@myagency.example.com",
+            last_sender="me@myagency.example.com",
+            open_questions=[],
+        )
+        summary = summary_with(waiting_on="me")
+
+        fixed = reconcile_waiting_on(summary, facts)
+
+        assert fixed.waiting_on is WaitingOn.THEM
+
+    def test_an_unanswered_question_from_them_still_waits_on_us(self):
+        facts = ThreadFacts(
+            owner_address="me@myagency.example.com",
+            last_sender="alice@example.com",
+            open_questions=["Can you send the report?"],
+        )
+        summary = summary_with(waiting_on="me")
+
+        assert reconcile_waiting_on(summary, facts).waiting_on is WaitingOn.ME
+
+    def test_owing_something_with_nothing_to_do_is_contradictory(self):
+        facts = ThreadFacts(
+            owner_address="me@myagency.example.com",
+            last_sender="ivy@example.com",
+            open_questions=[],
+        )
+        summary = summary_with(waiting_on="me", action_items=[])
+
+        assert reconcile_waiting_on(summary, facts).waiting_on is WaitingOn.NOBODY
+
+    def test_a_coherent_answer_is_left_alone(self):
+        facts = ThreadFacts(
+            owner_address="me@myagency.example.com",
+            last_sender="alice@example.com",
+            open_questions=["When can you send it?"],
+        )
+        summary = summary_with(
+            waiting_on="me", action_items=[ActionItem(task="Send it", owner="me", due=None)]
+        )
+
+        assert reconcile_waiting_on(summary, facts).waiting_on is WaitingOn.ME
+
+    def test_nothing_is_changed_when_the_owner_is_unknown(self):
+        facts = ThreadFacts(last_sender="me@myagency.example.com", open_questions=[])
+        summary = summary_with(waiting_on="me", action_items=[])
+
+        assert reconcile_waiting_on(summary, facts).waiting_on is WaitingOn.ME
 
 
 class TestSafeNextStep:

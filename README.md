@@ -1,6 +1,241 @@
 # Email Agent
 
-Local-first, security-hardened email thread summarizer.
-A small language model is one step in the pipeline, not the whole pipeline.
+Drop an email thread in, get back a summary, the action items, and one clear
+next step. It runs entirely on your own machine — you can unplug the network
+and it still works.
 
-Status: work in progress.
+A small language model does one job inside a pipeline of eight stages. The
+other seven are ordinary, testable code, because most of the work in
+understanding an email thread does not need a model, and the parts that do not
+need one should not depend on one.
+
+```
+ .eml file
+    │
+ 1. Parser          → rebuild the conversation, never render the HTML
+ 2. Security gate   → check every attachment before anything opens it
+ 3. Sandbox         → read PDFs and Word files in a process we can afford to lose
+ 4. Privacy         → mask personal data behind stable placeholders
+ 5. Enrichment      → find dates, open questions and who is waiting, with plain code
+ 6. The model       → write the summary and next step as strict JSON
+ 7. Guardrails      → verify every claim; detect and defuse manipulation
+ 8. Web app         → show it, including the parts that did not check out
+```
+
+---
+
+## Try it
+
+You need [Ollama](https://ollama.com) and Python 3.10 or newer.
+
+```bash
+make setup
+make model
+make run
+```
+
+Then open <http://127.0.0.1:8000> and drop in a `.eml` file. To export one:
+Gmail → open the thread → ⋮ → *Download message*; Outlook → drag the message to
+a folder.
+
+There are ready-made examples in `evals/fixtures/` if you would rather not use
+real mail.
+
+**The demonstration worth doing:** turn off Wi-Fi first. Everything still
+works, because nothing ever leaves the machine.
+
+### Tell it your address
+
+```bash
+echo "EMAIL_AGENT_OWNER_ADDRESS=you@yourcompany.com" >> .env
+```
+
+Without this the app has to guess which participant is you, and gets "who is
+waiting on whom" wrong on threads you sent yourself. Every address looks alike
+to a language model; this is one line of configuration that removes a whole
+class of mistake.
+
+---
+
+## What makes it different from calling an API
+
+### The model is a component, not the system
+
+Dates, deadlines, participants, unanswered questions and how long a thread has
+been waiting are all found by ordinary code in `app/pipeline/enrich.py`. They
+are then handed to the model as ground truth *and* shown in the interface
+directly, under the heading "found by code, not by the model".
+
+So when the interface shows you a deadline, a program found that deadline in
+the text. It is not a language model's recollection of one.
+
+### Nothing it says is taken on trust
+
+Every date, amount, percentage and email address in the summary is checked
+against the source. Anything that cannot be traced back is shown as
+unverified, with the specifics:
+
+> **Some details could not be verified** — the date 2026-12-25 does not appear
+> in the thread. Check this against the email before acting on it.
+
+### It knows when an email is trying to manipulate it
+
+Emails increasingly contain text aimed at AI assistants rather than at you.
+When that is detected, three things happen:
+
+1. a red banner tells you the email tries to give instructions to an assistant,
+   quoting the text it found;
+2. the model is *told* about it before it reads the thread;
+3. the recommended action is replaced with a deterministic safe one.
+
+That third step exists because of a real failure during evaluation. The model
+described the attack correctly and then advised complying with it:
+
+> next step: *"Reply to the customer confirming the balance is settled as
+> instructed"*
+
+Detection is deterministic and reliable; the model's judgement is neither. So
+when an attack is detected, the product does not forward the model's advice —
+it keeps it visible as a key point, but tells you to verify with the sender
+through a channel you already trust.
+
+### Failure is designed for
+
+| What goes wrong | What happens |
+|---|---|
+| Attachment is a disguised executable | Refused, with the reason shown; the email is still analysed |
+| Document parser hangs or crashes | Killed after a timeout; that attachment reports unreadable |
+| The model returns nonsense | Retried once, then a summary is built from the derived facts and marked *degraded* |
+| The model leaks its own instructions | Answer discarded, facts-only summary used instead |
+| Ollama is not running | 503 with the exact command to fix it |
+
+The only failure that stops the pipeline is the model service not running at
+all — because that is a setup problem you need to know about, and hiding it
+would be dishonest.
+
+---
+
+## How well does it work?
+
+`make evals` scores the pipeline against 15 hand-written threads with known
+answers. Latest run, `qwen3:4b` on an M1 MacBook Air (8 GB):
+
+```
+cases passed fully : 12/15
+individual checks  : 94/98 (96%)
+average time       : 17.6s per thread
+```
+
+The dataset covers ordinary work — requests, chasers, scheduling, a thread that
+genuinely needs nothing — and the cases that matter most: prompt injection in a
+body and inside a PDF, an executable renamed to `.pdf`, a macro document
+renamed to `.docx`, an HTML-only email with a tracking pixel, personal data
+that must never reach the model, and a thread long enough to need chunking.
+
+Scoring is tolerant about wording, because a summary can be phrased a hundred
+ways, and strict about anything that would mislead you: a missed deadline, the
+wrong sense of who owes what, an unflagged attack, or personal data reaching
+the model. That last one is checked by recording exactly what the model was
+sent.
+
+**The evaluation is how the product got better.** The first run scored 7/15.
+It showed the application holding facts it never passed on — today's date, and
+which address was the user's own — and the model filling those gaps by
+guessing. It also caught the injection compliance described above. Fixing what
+it found took the score to 12/15.
+
+### Known limitations
+
+- On roughly one thread in fifteen the 4B model invents a plausible deadline
+  that the thread does not contain. The guardrails catch it and mark it
+  unverified, but it is a real limit of a small model.
+- Scanned documents and images are not read, so an instruction inside a scanned
+  PDF is neither summarised nor detected. Those attachments are reported as
+  unreadable rather than silently skipped.
+- One thread takes 15–30 seconds on an 8 GB M1. A larger model is more accurate
+  and slower; the model name is one setting.
+
+---
+
+## Security
+
+The full analysis is in [docs/threat-model.md](docs/threat-model.md): twenty
+threats, what is done about each, and — just as important — six things this
+deliberately does **not** defend against.
+
+The short version:
+
+- **Nothing leaves the machine.** The model endpoint is loopback by default and
+  the interface loads no external script, font or image; a strict
+  Content-Security-Policy makes the browser enforce that too.
+- **A filename is never evidence.** Attachment types are detected from content,
+  so an executable named `invoice.pdf` is refused.
+- **Document parsers run in a process we can afford to lose** — near-empty
+  environment, capped CPU and memory, forbidden from writing to disk, killed if
+  it overruns. The bytes arrive over a pipe, so no attachment ever touches disk.
+- **HTML is parsed, never rendered.** Tracking pixels cannot fire, so reading
+  mail here does not tell the sender you read it.
+- **Personal data is masked** before storage and before the model, and restored
+  only for display. A copied history database leaks nothing.
+- **The model has no tools, no network and no way to act.** The worst a
+  successful injection achieves is a misleading summary — which the guardrails
+  then flag.
+
+---
+
+## Development
+
+```bash
+make test     # unit tests (no model needed)
+make lint     # black and ruff
+make hooks    # every pre-commit hook over the whole repo
+make evals    # score against the golden dataset (needs Ollama)
+```
+
+363 tests, and the pipeline stages are testable in isolation because each one
+takes its dependencies as arguments — the whole HTTP surface is tested without
+a language model running, and the model stage is tested with a mock transport.
+
+Every commit runs black, ruff and the test suite through pre-commit.
+
+### Layout
+
+```
+app/
+  main.py            FastAPI routes and security headers
+  config.py          every tunable, in one reviewable place
+  models.py          the contract between stages
+  store.py           local history, masked only
+  pipeline/
+    parser.py        .eml → ordered thread
+    text.py          HTML → text, quote handling
+    security.py      the attachment gate
+    extractors.py    PDF and DOCX reading
+    sandbox.py       process isolation for the above
+    reader.py        gate ↔ sandbox seam
+    privacy.py       masking and restoring
+    enrich.py        facts found without the model
+    summarizer.py    the local model stage
+    guards.py        verification and defusing
+    orchestrator.py  the assembly line
+  static/            the interface
+prompts/             prompt templates, as plain files
+evals/               golden dataset and scorer
+docs/                threat model, build log
+```
+
+[docs/build-log.md](docs/build-log.md) explains each commit in plain language:
+what was built and why that approach was chosen.
+
+---
+
+## What would come next
+
+- **Images and scans**, with local OCR, so a photographed invoice is read too.
+- **Spreadsheets**, summarising what a table contains rather than dumping rows.
+- **Connecting to a live mailbox** over IMAP. Deliberately not in this version:
+  it needs credential storage, which is a security problem worth doing properly
+  rather than quickly.
+- **Drafted replies**, which is where a next-step suggestion naturally leads —
+  and where the guardrails would need to be stricter still, because a draft is
+  much closer to an action than a summary is.

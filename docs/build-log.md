@@ -179,3 +179,147 @@ worst a successful attack achieves is a misleading summary — which the
 guardrails then flag. Threads too long to fit are summarised in parts and
 combined, always keeping the newest message in full because it decides the next
 step. Prompts live in `prompts/*.txt` so wording changes read as plain diffs.
+
+---
+
+### 13. `feat(guards): verify the model's answer before it is shown`
+
+**What:** Three checks on everything the model produces — injection detection,
+a canary that catches a leaked prompt, and grounding (every date, amount and
+address must exist in the source). Plus a fallback summary built from facts
+alone when the model gives nothing usable.
+
+**Why:** A language model is a useful component and an unreliable witness, so
+its output is treated as a claim to be checked rather than a result to show.
+Injection detection *flags* rather than blocks, because the model has no tools
+and cannot act anyway — but you deserve to know the email was built to
+manipulate an assistant. The fallback is deliberately dull: it can only state
+what the enrichment stage established, so it is structurally incapable of
+inventing a date. An honest plain answer beats an error page.
+
+---
+
+### 14. `fix(privacy): keep placeholders consistent across a whole thread`
+
+**What:** Masking was numbered per call, so the first address in one message
+and the first in another both became `[EMAIL_1]` — while being different
+people.
+
+**Why:** The model would have been told two strangers were the same person, and
+restoring the values would have put the wrong name back on screen. The fix is
+structural rather than a patch: the counters now live on a `Masker` that spans
+the whole thread. Found by reading my own code before wiring it up; the failing
+test was written first.
+
+---
+
+### 15. `feat(orchestrator): run the stages in order with a clear failure policy`
+
+**What:** The assembly line — the only module that knows the whole pipeline
+shape.
+
+**Why:** Every other stage stays unaware of the others, which is what makes
+them testable alone. The ordering is deliberate: facts and injection scanning
+run on the *real* text, because masking first would hide the very details they
+exist to find. Only one failure is fatal — the model service not running, which
+is a setup problem you must fix. Everything else degrades to a smaller but
+honest answer.
+
+---
+
+### 16. `feat(store): add local history with easy, complete deletion`
+
+**What:** A single SQLite file holding masked results, with delete-one and
+delete-everything.
+
+**Why:** A copied database leaks nothing, because only masked content is ever
+written, and the file is created owner-readable only. Deleting is first-class
+because a tool that quietly accumulates a record of your mail is not one people
+should trust. Stored rows are re-validated on read, so a corrupted row is
+skipped rather than trusted.
+
+---
+
+### 17. `feat(api): add the web application and interface`
+
+**What:** The HTTP layer and a single self-contained page.
+
+**Why:** The app is thin — parse, enforce limits, call the pipeline, return
+honest status codes — because all the interesting behaviour belongs in code
+that can be tested without a web server. Dependencies are injected, so the
+entire HTTP surface is tested without a model running. The page loads no
+external script, font or image, so it works with the network off, and a strict
+Content-Security-Policy makes the browser enforce that. Every value from an
+email is written with `textContent`, so a subject line containing markup is
+shown as text. The page deliberately shows the uncomfortable parts — blocked
+attachments, warnings, unverified claims — because the point is to be
+trustworthy, not tidy.
+
+---
+
+### 18–20. Three fixes found by running the real thing
+
+Unit tests pass on the cases you thought of. Running the actual product on an
+actual email found four more:
+
+- **The result panel showed when empty** — `display: grid` silently overrides
+  the `hidden` attribute.
+- **Header dates were reported as invented.** The grounding check searched
+  message bodies only, so a summary correctly saying "Alice wrote on
+  2026-08-19" was flagged. Headers are part of the source too.
+- **Relative deadlines were checked against the year 2000.** A hard-coded
+  reference date meant "before Friday" could never match the deadline the facts
+  had derived.
+- **The model was receiving raw email addresses.** Bodies and attachments were
+  masked; the `From:` and `To:` lines, which also go into the prompt, were not.
+  The privacy guarantee was narrower than it claimed. This also fixed a quality
+  problem — the model had been copying long addresses inaccurately, and works
+  reliably with short placeholder tokens.
+
+---
+
+### 21. `test(evals): add a golden dataset and scoring harness`
+
+**What:** Fifteen hand-written threads with known answers, and a scorer.
+
+**Why:** Unit tests answer "does each part behave as specified?". This answers
+"on realistic email, how often is the whole thing right?" — a different
+question needing different tools. Fixtures are generated by a readable script
+rather than committed as opaque blobs, so every case can be reviewed in one
+file. Scoring is tolerant about wording and strict about anything that would
+mislead somebody. Whether personal data reached the model is checked by
+recording exactly what the model was sent.
+
+---
+
+### 22. `feat: tell the model what the application already knows`
+
+**What:** Today's date, which address is the user's own, and what the injection
+detector found are now all passed to the model.
+
+**Why:** The first eval run scored 7/15 and every gap had the same shape: the
+application held a fact and never passed it on, so the model guessed. It was
+inferring today's date from "days since the last message" and quoting the
+result, which the grounding check then flagged as invented. Because headers are
+masked, every address looked alike, so on a thread the user had sent themselves
+it decided the user was waiting on themselves. And the injection detector's
+findings — available before the model ran — were kept from it.
+
+---
+
+### 23. `feat(guards): defuse a detected attack deterministically`
+
+**What:** When injection is detected, the recommended action is replaced with a
+safe deterministic one and the model's suggestion is kept as a key point.
+
+**Why:** The eval caught the model describing an attack correctly and then
+advising compliance with it: *"Reply to the customer confirming the balance is
+settled as instructed."* Detection is deterministic and reliable; the model's
+judgement is neither. So when we know a thread is hostile, the product stops
+forwarding the model's advice. It stays visible — you should be able to see
+what the model was talked into — but it is not what the interface tells you
+to do.
+
+Also added: "who is waiting on whom" is now corrected by code in the two cases
+where code can tell better than the model, and the prompt forbids using any
+date that is not in the thread or in the verified facts.

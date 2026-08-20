@@ -87,6 +87,10 @@ class Pipeline:
             summary = guards.strip_placeholders(summary)
             flags += placeholder_flags
 
+        # Who owes the next move is partly derivable from who spoke last, and
+        # the model judged it poorly in evaluation.
+        summary = guards.reconcile_waiting_on(summary, facts)
+
         # Detection is deterministic; the model's judgement is not. When the
         # thread is known to be hostile, its advice is not what we recommend.
         summary = guards.enforce_safe_next_step(

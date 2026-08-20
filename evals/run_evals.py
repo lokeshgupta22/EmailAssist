@@ -70,9 +70,11 @@ class RecordingSummarizer:
     def canary(self) -> str:
         return self._inner.canary
 
-    def summarize(self, thread: EmailThread, facts: ThreadFacts) -> SummaryResult:
+    def summarize(
+        self, thread: EmailThread, facts: ThreadFacts, warnings: list[str] | None = None
+    ) -> SummaryResult:
         self.seen.append(_thread_text(thread))
-        return self._inner.summarize(thread, facts)
+        return self._inner.summarize(thread, facts, warnings)
 
 
 def _thread_text(thread: EmailThread) -> str:
