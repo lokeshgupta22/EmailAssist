@@ -169,6 +169,10 @@ def create_app(
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
 
+    @app.get("/about", include_in_schema=False)
+    def about() -> FileResponse:
+        return FileResponse(STATIC_DIR / "about.html", media_type="text/html")
+
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     return app

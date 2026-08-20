@@ -20,7 +20,7 @@ from pathlib import Path
 DEMO_DIR = Path(__file__).resolve().parent
 STATIC_DIR = DEMO_DIR.parent / "app" / "static"
 
-SHARED_ASSETS = ("style.css", "render.js")
+SHARED_ASSETS = ("style.css", "render.js", "favicon.svg")
 
 
 def sync() -> list[str]:

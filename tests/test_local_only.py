@@ -38,11 +38,20 @@ class TestNoRemoteEndpoints:
             offenders
         )
 
-    def test_the_page_loads_only_its_own_assets(self):
-        html = (APP_DIR / "static" / "index.html").read_text()
+    @pytest.mark.parametrize("page", ["index.html", "about.html"])
+    def test_the_page_loads_only_its_own_assets(self, page: str):
+        """Every asset load is same-origin. In-page navigation (to / or
+        /about) is not a load and is not restricted to /static/, and neither
+        is a link out to the repository - a link is not a load, and nothing
+        on the page fetches it."""
+        html = (APP_DIR / "static" / page).read_text()
 
         for reference in re.findall(r'(?:src|href)="([^"]*)"', html):
-            assert reference.startswith("/static/"), f"{reference} is not a local asset"
+            if reference.startswith("https://github.com/"):
+                continue
+            assert not reference.startswith(
+                ("http://", "https://", "//")
+            ), f"{reference} is loaded from a remote host"
 
 
 class TestOutboundCallsAreLoopbackOnly:

@@ -133,6 +133,28 @@ footer p { margin: 0; max-width: 760px; }
 .brand-name { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--side-ink); }
 .brand-tag { margin: 2px 0 0; font-size: 12px; color: var(--side-ink-soft); }
 
+.sidebar-nav { display: flex; gap: 4px; margin-top: 2px; }
+
+.sidebar-nav-link {
+  flex: 1;
+  text-align: center;
+  padding: 7px 0;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--side-ink-soft);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.sidebar-nav-link:hover { color: var(--side-ink); border-color: var(--side-line); }
+
+.sidebar-nav-link.is-active {
+  color: var(--side-ink);
+  background: var(--side-panel);
+  border-color: var(--side-line);
+}
+
 .sidebar-new {
   width: 100%;
   justify-content: center;
@@ -247,8 +269,103 @@ footer p { margin: 0; max-width: 760px; }
   max-width: 760px;
 }
 
-#upload-heading { font-size: 21px; margin: 0 0 4px; letter-spacing: -.01em; }
+.page-title { font-size: 21px; margin: 0 0 4px; letter-spacing: -.01em; }
 .view-tagline { margin: 0 0 24px; color: var(--ink-soft); font-size: 13.5px; max-width: 56ch; }
+
+/* ---------- about page ----------
+   Shared by the application's About page and the demo's, which is why these
+   live here rather than in a page-specific stylesheet - style.css is copied
+   byte-for-byte into the demo (see demo/sync_assets.py). */
+
+.about-section { margin-top: 40px; max-width: 900px; }
+.about-section:first-of-type { margin-top: 0; }
+.about-section > .view-tagline { margin-bottom: 20px; }
+
+/* Also styles the demo's marketing section headings ("Why this is not just
+   an API call", "Measured, not asserted") - main only ever holds one other
+   (visually-hidden) h2 in the real application, so this is safe there too. */
+main h2 { font-size: 16px; margin: 0 0 4px; }
+
+.pipeline { list-style: none; margin: 20px 0 0; padding: 0; }
+
+.pipeline-step {
+  display: flex;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 22px;
+}
+.pipeline-step:last-child { padding-bottom: 0; }
+
+.pipeline-step::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: -22px;
+  width: 1px;
+  background: var(--line);
+}
+.pipeline-step:last-child::before { display: none; }
+
+.pipeline-num {
+  flex: none;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  font-family: var(--mono);
+  position: relative;
+  z-index: 1;
+}
+
+.pipeline-step h3 { margin: 3px 0 3px; font-size: 14px; }
+.pipeline-step p { margin: 0; font-size: 13.5px; color: var(--ink-soft); max-width: 62ch; }
+
+.explainer-grid, .security-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 16px;
+}
+
+.explainer-grid article, .security-grid article {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.explainer-grid h3, .security-grid h3 { margin: 0 0 8px; font-size: 14px; }
+.explainer-grid p, .security-grid p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+
+.numbers-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 16px;
+}
+
+.numbers-grid div {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.numbers-grid strong { font-size: 24px; letter-spacing: -.02em; font-family: var(--mono); }
+.numbers-grid span { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; }
+
+.numbers-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ink-soft); max-width: 70ch; }
+
+.about-cta {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+  margin-top: 16px;
+}
 
 /* ---------- upload ---------- */
 

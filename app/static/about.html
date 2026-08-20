@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>About &mdash; EmailAssist</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <rect x="2" y="4.5" width="20" height="14" rx="2.5" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M3 6.2l9 6.3 9-6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="18.5" cy="16.5" r="4.6" fill="var(--side-bg)"/>
+            <path d="M16.6 16.6l1.3 1.3 2.3-2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <div>
+          <p class="brand-name">EmailAssist</p>
+          <p class="brand-tag">Local email triage</p>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary">
+        <a href="/" class="sidebar-nav-link">Workspace</a>
+        <a href="/about" class="sidebar-nav-link is-active">About</a>
+      </nav>
+
+      <a href="/" class="button button--primary sidebar-new">+ New analysis</a>
+
+      <div id="health" class="health" role="status" aria-live="polite">
+        <span class="dot dot--unknown"></span><span class="health-text">checking the local model&hellip;</span>
+      </div>
+
+      <div class="history" aria-labelledby="history-heading">
+        <div class="history-head">
+          <h2 id="history-heading">History</h2>
+          <button type="button" id="purge-button" class="text-button">Clear all</button>
+        </div>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+
+      <p class="sidebar-footer">Runs locally. Nothing is uploaded anywhere.</p>
+    </aside>
+
+    <main class="workspace">
+      <section class="about-section" aria-labelledby="about-heading">
+        <h1 id="about-heading" class="page-title">About EmailAssist</h1>
+        <p class="view-tagline">
+          Drop an email thread in, get back a summary, the action items, and
+          one clear next step. It runs entirely on this machine &mdash; you
+          can unplug the network and it still works.
+        </p>
+      </section>
+
+      <section class="about-section" aria-labelledby="pipeline-heading">
+        <h2 id="pipeline-heading">How an email becomes an answer</h2>
+        <p class="view-tagline">
+          A small language model does exactly one job inside a pipeline of
+          eight stages. The other seven are ordinary, testable code, because
+          most of the work in understanding an email thread does not need a
+          model &mdash; and the parts that do not need one should not depend
+          on one.
+        </p>
+
+        <ol class="pipeline">
+          <li class="pipeline-step">
+            <span class="pipeline-num">1</span>
+            <div>
+              <h3>Parser</h3>
+              <p>Rebuilds the conversation from the uploaded <code>.eml</code> file(s). HTML is read as text, never rendered &mdash; a tracking pixel cannot fire.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">2</span>
+            <div>
+              <h3>Security gate</h3>
+              <p>Every attachment is checked before anything opens it. File type comes from content, never a filename, so an executable renamed <code>invoice.pdf</code> is refused.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">3</span>
+            <div>
+              <h3>Sandbox</h3>
+              <p>PDFs and Word files are read in a process with capped CPU and memory, no disk access, and a hard timeout &mdash; a process this app can afford to lose.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">4</span>
+            <div>
+              <h3>Privacy</h3>
+              <p>Personal data is masked behind stable placeholders before anything is stored or shown to the model, and restored only for display.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">5</span>
+            <div>
+              <h3>Enrichment</h3>
+              <p>Dates, open questions and who is waiting on whom are found by plain code, then handed to the model as ground truth &mdash; and shown to you directly, under "found by code, not by the model".</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">6</span>
+            <div>
+              <h3>The model</h3>
+              <p>Writes the summary and the suggested next step as strict JSON. It has no tools, no network access, and no way to act on anything it reads.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">7</span>
+            <div>
+              <h3>Guardrails</h3>
+              <p>Every date, amount and address in the summary is checked against the source. Detected manipulation replaces the model's advice with a deterministic, safe one.</p>
+            </div>
+          </li>
+          <li class="pipeline-step">
+            <span class="pipeline-num">8</span>
+            <div>
+              <h3>Web app</h3>
+              <p>Shows the result &mdash; including the parts that did not check out, because the point is to be trustworthy, not to look clean.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="about-section" aria-labelledby="different-heading">
+        <h2 id="different-heading">Why this is not just an API call</h2>
+        <div class="explainer-grid">
+          <article>
+            <h3>The model is one stage of eight</h3>
+            <p>
+              Dates, deadlines, participants, unanswered questions and how long a
+              thread has waited are all found by ordinary code, then handed to the
+              model as ground truth <em>and</em> shown to you directly. A deadline
+              on screen is one a program found in the text.
+            </p>
+          </article>
+          <article>
+            <h3>Nothing it says is taken on trust</h3>
+            <p>
+              Every date, amount and address in the summary is checked against the
+              source. Anything that cannot be traced back is shown as unverified,
+              with the specifics.
+            </p>
+          </article>
+          <article>
+            <h3>Attacks are detected and defused</h3>
+            <p>
+              When an email tries to instruct the assistant, you are told, the
+              model is warned before it reads, and the recommended action is
+              replaced deterministically &mdash; because during evaluation the
+              model described an attack correctly and then advised complying
+              with it.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="about-section" aria-labelledby="security-heading">
+        <h2 id="security-heading">Security, in short</h2>
+        <p class="view-tagline">
+          The full analysis, twenty threats and six things this deliberately
+          does not defend against, is in
+          <a class="link" href="https://github.com/lokeshgupta22/EmailAssist/blob/main/docs/threat-model.md">the threat model</a>.
+        </p>
+        <div class="security-grid">
+          <article>
+            <h3>Nothing leaves the machine</h3>
+            <p>The model endpoint is loopback only, and a strict Content-Security-Policy stops the page loading any external script, font or image.</p>
+          </article>
+          <article>
+            <h3>A filename is never evidence</h3>
+            <p>Attachment types are detected from content. An executable named <code>invoice.pdf</code> is refused, not opened.</p>
+          </article>
+          <article>
+            <h3>Attachments run in a disposable process</h3>
+            <p>Near-empty environment, capped CPU and memory, no disk writes, killed if it overruns. Bytes arrive over a pipe &mdash; nothing touches disk.</p>
+          </article>
+          <article>
+            <h3>HTML is parsed, never rendered</h3>
+            <p>A tracking pixel cannot fire, so reading mail here never tells the sender you read it.</p>
+          </article>
+          <article>
+            <h3>Personal data is masked</h3>
+            <p>Masked before storage and before the model, restored only for display. A copied history database leaks nothing.</p>
+          </article>
+          <article>
+            <h3>The model has no way to act</h3>
+            <p>No tools, no network, nothing to call. The worst a successful injection achieves is a misleading summary &mdash; and the guardrails flag that too.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="about-section" aria-labelledby="numbers-heading">
+        <h2 id="numbers-heading">Measured, not asserted</h2>
+        <div class="numbers-grid">
+          <div><strong>15/15</strong><span>golden dataset cases, reproduced on two runs</span></div>
+          <div><strong>390</strong><span>tests, 97% line coverage</span></div>
+          <div><strong>~18s</strong><span>per thread on an 8&nbsp;GB M1, fully offline</span></div>
+          <div><strong>7&nbsp;&rarr;&nbsp;15</strong><span>eval score before and after the fixes it prompted</span></div>
+        </div>
+        <p class="numbers-note">
+          Fifteen cases is a small dataset written by one person, so it measures
+          the failures that were anticipated, not general accuracy. It earns its
+          keep by catching regressions and by having found real bugs.
+        </p>
+      </section>
+
+      <section class="about-section" aria-labelledby="limits-heading">
+        <h2 id="limits-heading">Known limitations</h2>
+        <article class="card">
+          <ul class="bullets">
+            <li>The dataset is small and self-written &mdash; it catches regressions, not general accuracy.</li>
+            <li>A 4B model still drifts; the guardrails exist precisely because that is expected, not surprising.</li>
+            <li>Scanned documents and images are not read; those attachments are reported as unreadable.</li>
+            <li>Injection detection recognises known shapes &mdash; a novel phrasing may not be flagged.</li>
+            <li>15&ndash;30 seconds per thread on an 8&nbsp;GB M1. A larger model is more accurate and slower.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="about-section" aria-labelledby="source-heading">
+        <h2 id="source-heading">Source</h2>
+        <p class="view-tagline">Everything above, plus the threat model and the build log, is in the repository.</p>
+        <div class="about-cta">
+          <a class="button button--primary" href="https://github.com/lokeshgupta22/EmailAssist">View on GitHub</a>
+          <a class="button" href="https://github.com/lokeshgupta22/EmailAssist/blob/main/docs/threat-model.md">Read the threat model</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/render.js"></script>
+  <script src="/static/sidebar.js"></script>
+  <script src="/static/about.js"></script>
+</body>
+</html>

@@ -1,5 +1,7 @@
 /*
- * Application wiring: choosing files, calling the API, and the history list.
+ * Application wiring: choosing files, calling the API, and the workspace
+ * views. Model health and the history list are shared with about.html, so
+ * that behaviour lives in sidebar.js instead of here.
  *
  * Drawing a result lives in render.js, which this page and the static demo
  * site both load, so the demo cannot drift from what the real interface shows.
@@ -90,7 +92,7 @@ async function analyse(event) {
     hide(statusBox);
     state.activeHistoryId = payload.id ?? null;
     showResult(payload);
-    await loadHistory();
+    await sidebarHistory.refresh();
   } catch (error) {
     showStatus(`Could not reach the local server: ${error.message}`, "error");
   } finally {
@@ -107,22 +109,22 @@ function showResult(result) {
 
 function showUploadView() {
   state.activeHistoryId = null;
+  highlightHistoryItem(null);
   hide(resultBox);
   hide(statusBox);
   uploadView.hidden = false;
-  highlightActiveHistoryItem();
 }
 
 async function openHistoryEntry(id) {
   state.activeHistoryId = id;
-  highlightActiveHistoryItem();
+  highlightHistoryItem(id);
 
   try {
     const response = await fetch(`/api/history/${id}`);
     if (!response.ok) {
       showUploadView();
       showStatus("That analysis is no longer available.", "error");
-      await loadHistory();
+      await sidebarHistory.refresh();
       return;
     }
     const payload = await response.json();
@@ -130,123 +132,6 @@ async function openHistoryEntry(id) {
   } catch (error) {
     showUploadView();
     showStatus(`Could not reach the local server: ${error.message}`, "error");
-  }
-}
-
-function highlightActiveHistoryItem() {
-  el("history-list").querySelectorAll(".history-item").forEach((item) => {
-    item.classList.toggle("is-active", item.dataset.id === String(state.activeHistoryId));
-  });
-}
-
-/* -------------------------------------------------------------- history */
-
-async function loadHistory() {
-  const list = el("history-list");
-  try {
-    const response = await fetch("/api/history");
-    const payload = await response.json();
-    list.replaceChildren();
-
-    if (payload.entries.length === 0) {
-      list.append(emptyNote("Nothing analysed yet."));
-      return;
-    }
-
-    payload.entries.forEach((entry) => list.append(historyRow(entry)));
-    highlightActiveHistoryItem();
-  } catch {
-    list.replaceChildren(emptyNote("History could not be loaded."));
-  }
-}
-
-function historyRow(entry) {
-  const row = document.createElement("li");
-  row.className = "history-item";
-  row.dataset.id = String(entry.id);
-  row.tabIndex = 0;
-  row.setAttribute("role", "button");
-
-  const top = document.createElement("div");
-  top.className = "history-item-top";
-
-  const badge = document.createElement("span");
-  badge.className = `badge badge--sm badge--${entry.urgency}`;
-  badge.textContent = entry.urgency;
-
-  const when = document.createElement("time");
-  when.dateTime = entry.created_at;
-  when.textContent = new Date(entry.created_at).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
-
-  top.append(badge, when);
-
-  const subject = document.createElement("p");
-  subject.className = "history-item-subject";
-  subject.textContent = entry.thread_subject;
-
-  const step = document.createElement("p");
-  step.className = "history-item-step";
-  step.textContent = entry.suggested_next_step;
-
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "history-item-delete";
-  remove.title = "Delete this analysis";
-  remove.setAttribute("aria-label", "Delete this analysis");
-  remove.textContent = "✕";
-  remove.addEventListener("click", (event) => {
-    event.stopPropagation();
-    deleteEntry(entry.id);
-  });
-
-  const open = () => openHistoryEntry(entry.id);
-  row.addEventListener("click", open);
-  row.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      open();
-    }
-  });
-
-  row.append(top, subject, step, remove);
-  return row;
-}
-
-async function deleteEntry(id) {
-  await fetch(`/api/history/${id}`, { method: "DELETE" });
-  if (state.activeHistoryId === id) showUploadView();
-  await loadHistory();
-}
-
-async function purgeHistory() {
-  if (!window.confirm("Delete every stored analysis? This cannot be undone.")) return;
-  await fetch("/api/history", { method: "DELETE" });
-  showUploadView();
-  await loadHistory();
-}
-
-/* --------------------------------------------------------------- health */
-
-async function loadHealth() {
-  const box = el("health");
-  const dot = box.querySelector(".dot");
-  const text = box.querySelector(".health-text");
-
-  try {
-    const health = await (await fetch("/api/health")).json();
-    if (health.model_available) {
-      dot.className = "dot dot--ok";
-      text.textContent = `${health.model} ready, running locally`;
-    } else {
-      dot.className = "dot dot--bad";
-      text.textContent = `${health.model} not reachable — run: ollama serve`;
-    }
-  } catch {
-    dot.className = "dot dot--bad";
-    text.textContent = "the local server is not responding";
   }
 }
 
@@ -301,11 +186,25 @@ dropzone.addEventListener("drop", (event) => addFiles(event.dataTransfer.files))
 fileInput.addEventListener("change", () => addFiles(fileInput.files));
 el("upload-form").addEventListener("submit", analyse);
 clearButton.addEventListener("click", clearFiles);
-el("purge-button").addEventListener("click", purgeHistory);
 el("new-analysis-button").addEventListener("click", () => {
   clearFiles();
   showUploadView();
 });
 
+const sidebarHistory = initSidebarHistory({
+  onSelect: openHistoryEntry,
+  onDeleted: (id) => {
+    if (id === null || state.activeHistoryId === id) showUploadView();
+  },
+});
+
 loadHealth();
-loadHistory();
+
+// A history row clicked from another page (About) links back here as
+// /?open=<id>, so that entry reopens immediately instead of the empty
+// upload view.
+const openId = new URLSearchParams(location.search).get("open");
+if (openId) {
+  openHistoryEntry(Number(openId));
+  window.history.replaceState(null, "", "/");
+}
