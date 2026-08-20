@@ -77,6 +77,14 @@ class Pipeline:
         flags += model_flags
 
         summary = _restore(summary, mapping)
+
+        # Anything still bracketed after restoring is a placeholder the model
+        # invented rather than one the pipeline created.
+        placeholder_flags = guards.check_placeholders(summary)
+        if placeholder_flags:
+            summary = guards.strip_placeholders(summary)
+            flags += placeholder_flags
+
         unverified = guards.find_ungrounded_claims(summary, thread, now=now)
 
         return AnalysisResult(
@@ -108,12 +116,25 @@ class Pipeline:
 
         One masker covers the whole thread, so the same person keeps the same
         placeholder in every message and every attachment.
+
+        Headers are masked as well as bodies. The From and To lines are handed
+        to the model along with the text, so leaving them alone would send real
+        addresses to the model while claiming they had been masked. Masking
+        them also keeps the model on short, stable tokens instead of long
+        addresses it tends to garble.
         """
         detector = privacy.build_detector(self._settings, known_names=_display_names(thread))
         masker = privacy.Masker(detector)
 
         messages = [
-            message.model_copy(update={"body": masker.mask(message.body)})
+            message.model_copy(
+                update={
+                    "sender": masker.mask(message.sender),
+                    "recipients": [masker.mask(address) for address in message.recipients],
+                    "cc": [masker.mask(address) for address in message.cc],
+                    "body": masker.mask(message.body),
+                }
+            )
             for message in thread.messages
         ]
         attachments = [
@@ -127,7 +148,13 @@ class Pipeline:
             for attachment in thread.attachments
         ]
 
-        masked = thread.model_copy(update={"messages": messages, "attachments": attachments})
+        masked = thread.model_copy(
+            update={
+                "subject": masker.mask(thread.subject),
+                "messages": messages,
+                "attachments": attachments,
+            }
+        )
         return masked, masker.mapping
 
     def _summarise(

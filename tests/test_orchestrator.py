@@ -1,5 +1,6 @@
 """The orchestrator runs the stages in order and degrades instead of failing."""
 
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -39,6 +40,13 @@ class FakeSummarizer:
         if isinstance(self._result, Exception):
             raise self._result
         return SummaryResult(summary=self._result, model_used="fake-model")
+
+
+def _first_placeholder(text: str) -> str:
+    """Return the first email placeholder in the text, whatever its number."""
+    match = re.search(r"\[EMAIL_\d+\]", text)
+    assert match is not None, f"expected a masked address in: {text!r}"
+    return match.group(0)
 
 
 def pipeline_with(summarizer: FakeSummarizer, settings: Settings | None = None) -> Pipeline:
@@ -131,16 +139,68 @@ class TestPrivacy:
         assert "555" not in seen
         assert "[PHONE_1]" in seen
 
-    def test_placeholders_are_restored_in_the_answer(self):
-        masked_answer = GOOD_SUMMARY.model_copy(
-            update={"suggested_next_step": "Reply to [EMAIL_1] today."}
+    def test_the_model_never_sees_raw_addresses_from_the_headers(self):
+        summarizer = FakeSummarizer()
+        raw = build_eml(
+            sender="priya.raman@northwind.example.com",
+            to="me@myagency.example.com",
+            body="Any update on the quote?",
         )
-        summarizer = FakeSummarizer(masked_answer)
+
+        pipeline_with(summarizer).analyse([raw], now=NOW)
+
+        thread_seen = summarizer.calls[0][0]
+        rendered = " ".join(
+            f"{message.sender} {' '.join(message.recipients)} {message.body}"
+            for message in thread_seen.messages
+        )
+        assert (
+            "priya.raman@northwind.example.com" not in rendered
+        ), "addresses in the headers are personal data too"
+        assert "me@myagency.example.com" not in rendered
+        assert "[EMAIL_" in rendered
+
+    def test_the_subject_is_masked_before_the_model_sees_it(self):
+        summarizer = FakeSummarizer()
+        raw = build_eml(subject="Re: contract for carol@example.com", body="hello")
+
+        pipeline_with(summarizer).analyse([raw], now=NOW)
+
+        assert "carol@example.com" not in summarizer.calls[0][0].subject
+
+    def test_the_real_subject_is_still_reported_to_the_user(self):
+        raw = build_eml(subject="Contract for carol@example.com", body="hello")
+
+        result = pipeline_with(FakeSummarizer()).analyse([raw], now=NOW)
+
+        assert result.thread_subject == "Contract for carol@example.com"
+
+    def test_the_reported_participants_are_the_real_addresses(self):
+        raw = build_eml(sender="priya@northwind.example.com", body="hello")
+
+        result = pipeline_with(FakeSummarizer()).analyse([raw], now=NOW)
+
+        assert result.facts.participants == ["priya@northwind.example.com"]
+
+    def test_placeholders_are_restored_in_the_answer(self):
+        # The fake echoes back whatever placeholder the pipeline gave it, which
+        # is what a real model does when it refers to a participant.
+        class EchoSummarizer(FakeSummarizer):
+            def summarize(self, thread, facts):
+                placeholder = _first_placeholder(thread.messages[0].body)
+                return SummaryResult(
+                    summary=GOOD_SUMMARY.model_copy(
+                        update={"suggested_next_step": f"Reply to {placeholder} today."}
+                    ),
+                    model_used="fake-model",
+                )
+
         raw = build_eml(body="Write back to carol@example.com when you can.")
 
-        result = pipeline_with(summarizer).analyse([raw], now=NOW)
+        result = pipeline_with(EchoSummarizer()).analyse([raw], now=NOW)
 
-        assert "carol@example.com" in result.summary.suggested_next_step
+        assert result.summary.suggested_next_step == "Reply to carol@example.com today."
+        assert "[EMAIL_" not in result.summary.suggested_next_step
 
     def test_two_people_in_one_thread_never_share_a_placeholder(self):
         summarizer = FakeSummarizer()
@@ -182,7 +242,21 @@ class TestPrivacy:
         pipeline_with(summarizer).analyse([first, second], now=NOW)
 
         bodies = " ".join(message.body for message in summarizer.calls[0][0].messages)
-        assert bodies.count("[EMAIL_1]") == 2
+        placeholder = _first_placeholder(bodies)
+        assert (
+            bodies.count(placeholder) == 2
+        ), "one address written twice must map to one placeholder"
+
+    def test_an_invented_placeholder_is_flagged_and_removed(self):
+        inventive = GOOD_SUMMARY.model_copy(
+            update={"suggested_next_step": "Forward the file to [EMAIL_99]."}
+        )
+        summarizer = FakeSummarizer(inventive)
+
+        result = pipeline_with(summarizer).analyse([build_eml(body="hello")], now=NOW)
+
+        assert any(flag.kind == "unrestored_placeholder" for flag in result.security_flags)
+        assert "[EMAIL_99]" not in result.summary.suggested_next_step
 
     def test_masking_can_be_switched_off(self):
         summarizer = FakeSummarizer()

@@ -32,8 +32,10 @@ from app.models import (
     Urgency,
     WaitingOn,
 )
+from app.pipeline import privacy
 
 INJECTION_FLAG = "prompt_injection"
+PLACEHOLDER_FLAG = "unrestored_placeholder"
 CANARY_FLAG = "prompt_leak"
 UNGROUNDED_FLAG = "unverified_claim"
 
@@ -148,6 +150,49 @@ def check_canary(summary: Summary, canary: str) -> list[SecurityFlag]:
             )
         ]
     return []
+
+
+def check_placeholders(summary: Summary) -> list[SecurityFlag]:
+    """Detect placeholders the model made up.
+
+    Every placeholder the pipeline created is restored before this runs, so
+    anything still bracketed is one the model invented - usually a reference to
+    a person who is not in the thread. It is reported and the text is tidied,
+    because showing a raw ``[EMAIL_9]`` to a user is both confusing and a sign
+    the answer should be read carefully.
+    """
+    leftovers = privacy.remaining_placeholders(_all_text(summary))
+    if not leftovers:
+        return []
+
+    return [
+        SecurityFlag(
+            kind=PLACEHOLDER_FLAG,
+            detail=(
+                f"the model referred to {', '.join(sorted(set(leftovers)))}, which does not "
+                "correspond to anybody in this thread; treat that part of the answer with care"
+            ),
+        )
+    ]
+
+
+def strip_placeholders(summary: Summary) -> Summary:
+    """Replace invented placeholders with a neutral word so the text still reads."""
+
+    def replace(text: str) -> str:
+        return privacy.PLACEHOLDER_RE.sub("someone", text)
+
+    return summary.model_copy(
+        update={
+            "summary": replace(summary.summary),
+            "suggested_next_step": replace(summary.suggested_next_step),
+            "key_points": [replace(point) for point in summary.key_points],
+            "action_items": [
+                item.model_copy(update={"task": replace(item.task)})
+                for item in summary.action_items
+            ],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
