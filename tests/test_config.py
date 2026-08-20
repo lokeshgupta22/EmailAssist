@@ -8,9 +8,9 @@ from app.config import Settings
 def test_defaults_are_local_only():
     settings = Settings()
 
-    assert settings.ollama_host.startswith("http://127.0.0.1"), (
-        "the model endpoint must default to loopback so no data can leave the machine"
-    )
+    assert settings.ollama_host.startswith(
+        "http://127.0.0.1"
+    ), "the model endpoint must default to loopback so no data can leave the machine"
     assert settings.model_name
     assert settings.request_timeout_seconds > 0
 

@@ -2,7 +2,7 @@ VENV := .venv
 PY   := $(VENV)/bin/python
 PIP  := $(VENV)/bin/pip
 
-.PHONY: help setup model run test lint fmt evals clean
+.PHONY: help setup model run test lint fmt hooks evals clean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -11,6 +11,7 @@ setup: ## Create the virtualenv and install dependencies
 	python3 -m venv $(VENV)
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt -r requirements-dev.txt
+	$(VENV)/bin/pre-commit install
 
 model: ## Download the local language model (needs Ollama installed)
 	ollama pull qwen3:4b
@@ -18,15 +19,18 @@ model: ## Download the local language model (needs Ollama installed)
 run: ## Start the web app on http://127.0.0.1:8000
 	$(VENV)/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 
+hooks: ## Run every pre-commit hook against the whole repository
+	$(VENV)/bin/pre-commit run --all-files
+
 test: ## Run the test suite (skips tests needing Ollama)
 	$(PY) -m pytest -m "not integration"
 
 lint: ## Check formatting and lint rules
+	$(VENV)/bin/black --check .
 	$(VENV)/bin/ruff check .
-	$(VENV)/bin/ruff format --check .
 
 fmt: ## Auto-format the code
-	$(VENV)/bin/ruff format .
+	$(VENV)/bin/black .
 	$(VENV)/bin/ruff check --fix .
 
 evals: ## Score the pipeline against the golden dataset (needs Ollama)

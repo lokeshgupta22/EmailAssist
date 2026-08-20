@@ -1,0 +1,45 @@
+# Quality gate that runs on every commit.
+#
+# black formats, ruff lints, pytest proves the suite still passes. The Python
+# tools run as `local` hooks against the project virtualenv so their versions
+# come from requirements-dev.txt alone - there is no second place to bump a
+# version and no chance of the hooks drifting from local development.
+
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: local
+    hooks:
+      - id: black
+        name: black (format)
+        entry: .venv/bin/black
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff
+        name: ruff (lint)
+        entry: .venv/bin/ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+
+      - id: pytest
+        name: pytest (unit tests)
+        entry: .venv/bin/python -m pytest -m "not integration"
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
