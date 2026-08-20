@@ -19,8 +19,6 @@
 .notice p:last-child { margin-bottom: 0; }
 .notice a { color: var(--accent); }
 
-main h2 { font-size: 16px; margin: 0 0 4px; }
-
 .picker-error { color: var(--high); font-size: 13.5px; margin: 12px 0 0; }
 
 /* The upload form is real markup, greyed out rather than removed, so the

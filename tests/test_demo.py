@@ -109,8 +109,9 @@ class TestHonesty:
 
 @_needs_capture
 class TestStillLocalOnly:
-    def test_the_demo_loads_no_remote_asset(self):
-        html = (DEMO_DIR / "index.html").read_text()
+    @pytest.mark.parametrize("page", ["index.html", "about.html"])
+    def test_the_demo_loads_no_remote_asset(self, page: str):
+        html = (DEMO_DIR / page).read_text()
 
         for reference in re.findall(r'(?:src|href)="([^"]*)"', html):
             if reference.startswith("https://github.com/"):
@@ -120,7 +121,7 @@ class TestStillLocalOnly:
             ), f"{reference} is loaded from a remote host"
 
     def test_the_demo_scripts_make_no_remote_requests(self):
-        for name in ("demo.js", "render.js"):
+        for name in ("demo.js", "about.js", "render.js"):
             source = (DEMO_DIR / name).read_text()
             for url in re.findall(r'fetch\(\s*["\'`]([^"\'`]+)', source):
                 assert not url.startswith(

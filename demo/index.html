@@ -6,6 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <title>EmailAssist — recorded demo</title>
   <meta name="description" content="A local-first email thread summariser with a small language model as one stage of a verified pipeline.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="demo.css">
 </head>
@@ -13,12 +14,24 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <span class="mark" aria-hidden="true">✉</span>
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <rect x="2" y="4.5" width="20" height="14" rx="2.5" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M3 6.2l9 6.3 9-6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="18.5" cy="16.5" r="4.6" fill="var(--side-bg)"/>
+            <path d="M16.6 16.6l1.3 1.3 2.3-2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
         <div>
           <p class="brand-name">EmailAssist</p>
           <p class="brand-tag">Recorded demo</p>
         </div>
       </div>
+
+      <nav class="sidebar-nav" aria-label="Primary">
+        <a href="index.html" class="sidebar-nav-link is-active">Workspace</a>
+        <a href="about.html" class="sidebar-nav-link">About</a>
+      </nav>
 
       <button type="button" id="new-analysis-button" class="button button--primary sidebar-new">
         + New analysis
@@ -45,7 +58,7 @@
 
     <main class="workspace">
       <section id="upload-view" aria-labelledby="upload-heading">
-        <h1 id="upload-heading">Analyse a thread</h1>
+        <h1 id="upload-heading" class="page-title">Analyse a thread</h1>
         <p class="view-tagline">Drop in an exported email thread and get a summary, action items and what to do next &mdash; entirely on your own machine.</p>
 
         <div class="notice" role="note">
@@ -125,63 +138,6 @@
           <p class="source-note">Exactly as it arrived, transfer encoding and all &mdash; this is what the parser is handed.</p>
           <pre id="source-text"></pre>
         </details>
-      </section>
-
-      <section class="explainer">
-        <h2>Why this is not just an API call</h2>
-        <div class="explainer-grid">
-          <article>
-            <h3>The model is one stage of eight</h3>
-            <p>
-              Dates, deadlines, participants, unanswered questions and how long a
-              thread has waited are all found by ordinary code, then handed to the
-              model as ground truth <em>and</em> shown to you directly. A deadline
-              on screen is one a program found in the text.
-            </p>
-          </article>
-          <article>
-            <h3>Nothing it says is taken on trust</h3>
-            <p>
-              Every date, amount and address in the summary is checked against the
-              source. Anything that cannot be traced back is shown as unverified,
-              with the specifics.
-            </p>
-          </article>
-          <article>
-            <h3>Attacks are detected and defused</h3>
-            <p>
-              When an email tries to instruct the assistant, you are told, the
-              model is warned before it reads, and the recommended action is
-              replaced deterministically &mdash; because during evaluation the
-              model described an attack correctly and then advised complying
-              with it.
-            </p>
-          </article>
-          <article>
-            <h3>Attachments are guilty until proven innocent</h3>
-            <p>
-              File types come from content, never a filename. Macros, zip bombs
-              and traversal entries are refused, and the readers that do run live
-              in a separate process with capped CPU, capped memory and no ability
-              to write to disk.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section class="numbers">
-        <h2>Measured, not asserted</h2>
-        <div class="numbers-grid">
-          <div><strong>15/15</strong><span>golden dataset cases, reproduced on two runs</span></div>
-          <div><strong>390</strong><span>tests, 97% line coverage</span></div>
-          <div><strong>~18s</strong><span>per thread on an 8&nbsp;GB M1, fully offline</span></div>
-          <div><strong>7&nbsp;&rarr;&nbsp;15</strong><span>eval score before and after the fixes it prompted</span></div>
-        </div>
-        <p class="numbers-note">
-          Fifteen cases is a small dataset written by one person, so it measures
-          the failures that were anticipated, not general accuracy. It earns its
-          keep by catching regressions and by having found real bugs.
-        </p>
       </section>
     </main>
   </div>
