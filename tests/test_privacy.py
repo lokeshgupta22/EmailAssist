@@ -4,6 +4,7 @@ import pytest
 
 from app.config import Settings
 from app.pipeline.privacy import (
+    Masker,
     NullPiiDetector,
     PiiSpan,
     RegexPiiDetector,
@@ -183,3 +184,52 @@ class TestSpan:
         second = PiiSpan(start=10, end=15, kind="EMAIL", value="b")
 
         assert sorted([second, first]) == [first, second]
+
+
+class TestMaskerAcrossManyTexts:
+    """A thread is many pieces of text; placeholders must stay consistent across them."""
+
+    def test_the_same_person_keeps_one_placeholder_across_texts(self):
+        masker = Masker(RegexPiiDetector())
+
+        first = masker.mask("ask alice@example.com about it")
+        second = masker.mask("alice@example.com replied already")
+
+        assert "[EMAIL_1]" in first
+        assert "[EMAIL_1]" in second
+        assert len(masker.mapping) == 1
+
+    def test_different_people_never_share_a_placeholder(self):
+        masker = Masker(RegexPiiDetector())
+
+        first = masker.mask("ask alice@example.com")
+        second = masker.mask("ask bob@example.com")
+
+        assert "[EMAIL_1]" in first
+        assert "[EMAIL_2]" in second
+        assert masker.mapping["[EMAIL_1]"] == "alice@example.com"
+        assert masker.mapping["[EMAIL_2]"] == "bob@example.com"
+
+    def test_numbering_continues_across_texts_for_each_kind(self):
+        masker = Masker(RegexPiiDetector())
+
+        masker.mask("alice@example.com and +1 (555) 010-9876")
+        masker.mask("bob@example.com and +44 20 7946 0958")
+
+        assert set(masker.mapping) == {"[EMAIL_1]", "[EMAIL_2]", "[PHONE_1]", "[PHONE_2]"}
+
+    def test_restoring_uses_the_accumulated_mapping(self):
+        masker = Masker(RegexPiiDetector())
+        masker.mask("ask alice@example.com")
+        masker.mask("and bob@example.com")
+
+        restored = masker.unmask("Reply to [EMAIL_2], copying [EMAIL_1].")
+
+        assert restored == "Reply to bob@example.com, copying alice@example.com."
+
+    def test_text_already_containing_a_placeholder_is_left_alone(self):
+        masker = Masker(RegexPiiDetector())
+
+        masked = masker.mask("forward to [EMAIL_1] please")
+
+        assert masked == "forward to [EMAIL_1] please"

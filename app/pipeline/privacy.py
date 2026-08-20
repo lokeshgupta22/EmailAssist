@@ -152,41 +152,77 @@ def build_detector(settings: Settings, known_names: list[str] | None = None) -> 
     return RegexPiiDetector(known_names=known_names)
 
 
-def mask(text: str, detector: PiiDetector) -> tuple[str, dict[str, str]]:
-    """Replace personal data with placeholders.
-
-    Returns the masked text and the placeholder-to-value mapping needed to put
-    the real values back. The same value always gets the same placeholder, so
-    the model can still reason about who is who.
-    """
-    spans = _resolve_overlaps(detector.detect(text))
-    if not spans:
-        return text, {}
-
-    mapping: dict[str, str] = {}
-    placeholder_for: dict[tuple[str, str], str] = {}
-    counters: dict[str, int] = {}
-
-    # Replace from the end so earlier offsets stay valid.
-    masked = text
-    for span in sorted(spans, reverse=True):
-        key = (span.kind, span.value.strip().lower())
-        placeholder = placeholder_for.get(key)
-        if placeholder is None:
-            counters[span.kind] = counters.get(span.kind, 0) + 1
-            placeholder = f"[{span.kind}_{counters[span.kind]}]"
-            placeholder_for[key] = placeholder
-            mapping[placeholder] = text[span.start : span.end].strip()
-        masked = masked[: span.start] + placeholder + masked[span.end :]
-
-    return masked, mapping
-
-
 def unmask(text: str, mapping: dict[str, str]) -> str:
     """Put the real values back into text that came out of the model."""
     for placeholder, value in mapping.items():
         text = text.replace(placeholder, value)
     return text
+
+
+class Masker:
+    """Applies consistent placeholders across every text in one thread.
+
+    A thread is many separate pieces of text - each message, each attachment -
+    and they must share one numbering. If each piece were masked on its own,
+    the first address in message one and the first address in message two
+    would both become ``[EMAIL_1]`` while being different people, and the
+    model would be told that two strangers are the same person.
+
+    So the counters and the mapping live on the masker, not on a single call.
+    """
+
+    def __init__(self, detector: PiiDetector) -> None:
+        self._detector = detector
+        self._mapping: dict[str, str] = {}
+        self._placeholder_for: dict[tuple[str, str], str] = {}
+        self._counters: dict[str, int] = {}
+
+    @property
+    def mapping(self) -> dict[str, str]:
+        """Placeholder to real value, for everything masked so far."""
+        return dict(self._mapping)
+
+    def mask(self, text: str) -> str:
+        """Replace personal data in one piece of text with placeholders."""
+        if not text:
+            return text
+
+        spans = _resolve_overlaps(self._detector.detect(text))
+        if not spans:
+            return text
+
+        # Replace from the end so earlier offsets stay valid.
+        masked = text
+        for span in sorted(spans, reverse=True):
+            placeholder = self._placeholder(span, text)
+            masked = masked[: span.start] + placeholder + masked[span.end :]
+        return masked
+
+    def unmask(self, text: str) -> str:
+        """Put the real values back into text produced downstream."""
+        return unmask(text, self._mapping)
+
+    def _placeholder(self, span: PiiSpan, text: str) -> str:
+        key = (span.kind, span.value.strip().lower())
+        existing = self._placeholder_for.get(key)
+        if existing is not None:
+            return existing
+
+        self._counters[span.kind] = self._counters.get(span.kind, 0) + 1
+        placeholder = f"[{span.kind}_{self._counters[span.kind]}]"
+        self._placeholder_for[key] = placeholder
+        self._mapping[placeholder] = text[span.start : span.end].strip()
+        return placeholder
+
+
+def mask(text: str, detector: PiiDetector) -> tuple[str, dict[str, str]]:
+    """Mask one standalone piece of text.
+
+    Convenience wrapper for callers with nothing to share; anything handling a
+    whole thread should use :class:`Masker` so numbering stays consistent.
+    """
+    masker = Masker(detector)
+    return masker.mask(text), masker.mapping
 
 
 def remaining_placeholders(text: str) -> list[str]:
