@@ -155,6 +155,40 @@ def check_canary(summary: Summary, canary: str) -> list[SecurityFlag]:
     return []
 
 
+SAFE_NEXT_STEP = (
+    "Treat this message as suspicious. Verify it with the sender through a channel "
+    "you already trust before doing anything it asks."
+)
+
+
+def enforce_safe_next_step(summary: Summary, *, injection_detected: bool) -> Summary:
+    """Replace the recommended action when the thread was found to be hostile.
+
+    Detection and advice are separate problems. The detector is deterministic
+    and reliable; the model is neither, and in testing it produced a correct
+    description of an attack alongside a next step that complied with it.
+
+    So when an attack is detected the product does not forward the model's
+    advice. The suggestion is kept as a key point, because a user should be
+    able to see what the model was talked into, but it is not what the
+    interface tells them to do.
+    """
+    if not injection_detected:
+        return summary
+
+    return summary.model_copy(
+        update={
+            "suggested_next_step": SAFE_NEXT_STEP,
+            "action_items": [],
+            "key_points": [
+                *summary.key_points,
+                f'The model suggested: "{summary.suggested_next_step}" - '
+                f"not recommended, because this email tries to manipulate assistants.",
+            ],
+        }
+    )
+
+
 def check_placeholders(summary: Summary) -> list[SecurityFlag]:
     """Detect placeholders the model made up.
 
@@ -204,7 +238,11 @@ def strip_placeholders(summary: Summary) -> Summary:
 
 
 def find_ungrounded_claims(
-    summary: Summary, thread: EmailThread, *, now: datetime | None = None
+    summary: Summary,
+    thread: EmailThread,
+    *,
+    now: datetime | None = None,
+    facts: ThreadFacts | None = None,
 ) -> list[str]:
     """Return the specifics in the summary that do not appear in the source.
 
@@ -219,6 +257,13 @@ def find_ungrounded_claims(
     """
     source = _source_text(thread)
     source_dates = _dates_in(source, now=now)
+
+    # Today's date and the dates the enrichment stage derived were given to the
+    # model as facts, so quoting them back is not an invention.
+    if facts is not None:
+        source_dates |= set(facts.dates_mentioned)
+        if facts.today:
+            source_dates.add(facts.today)
     claimed = _all_text(summary)
     claims: list[str] = []
 

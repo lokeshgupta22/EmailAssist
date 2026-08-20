@@ -47,7 +47,7 @@ class SummarizerLike(Protocol):
     canary: str
 
     def summarize(
-        self, thread: EmailThread, facts: ThreadFacts
+        self, thread: EmailThread, facts: ThreadFacts, warnings: list[str] | None = None
     ) -> SummaryResult:  # pragma: no cover - protocol
         ...
 
@@ -69,11 +69,13 @@ class Pipeline:
 
         # Facts and injection scanning both run on the real text: masking would
         # hide the very details they exist to find.
-        facts = collect_facts(thread, now=now)
+        facts = collect_facts(thread, now=now, owner_address=self._settings.owner_address)
         flags = guards.find_injection_attempts(thread)
 
         masked_thread, mapping = self._mask(thread)
-        summary, model_used, degraded, model_flags = self._summarise(masked_thread, facts, thread)
+        summary, model_used, degraded, model_flags = self._summarise(
+            masked_thread, facts, thread, warnings=[flag.detail for flag in flags]
+        )
         flags += model_flags
 
         summary = _restore(summary, mapping)
@@ -85,7 +87,13 @@ class Pipeline:
             summary = guards.strip_placeholders(summary)
             flags += placeholder_flags
 
-        unverified = guards.find_ungrounded_claims(summary, thread, now=now)
+        # Detection is deterministic; the model's judgement is not. When the
+        # thread is known to be hostile, its advice is not what we recommend.
+        summary = guards.enforce_safe_next_step(
+            summary, injection_detected=any(f.kind == guards.INJECTION_FLAG for f in flags)
+        )
+
+        unverified = guards.find_ungrounded_claims(summary, thread, now=now, facts=facts)
 
         return AnalysisResult(
             thread_subject=thread.subject,
@@ -158,7 +166,11 @@ class Pipeline:
         return masked, masker.mapping
 
     def _summarise(
-        self, masked_thread: EmailThread, facts: ThreadFacts, original: EmailThread
+        self,
+        masked_thread: EmailThread,
+        facts: ThreadFacts,
+        original: EmailThread,
+        warnings: list[str] | None = None,
     ) -> tuple[Summary, str | None, bool, list[SecurityFlag]]:
         """Ask the model, then decide whether its answer may be used.
 
@@ -167,7 +179,7 @@ class Pipeline:
         falls back to a summary built from the derived facts.
         """
         try:
-            result = self._summarizer.summarize(masked_thread, facts)
+            result = self._summarizer.summarize(masked_thread, facts, warnings)
         except ModelResponseError as exc:
             return (
                 guards.build_fallback_summary(original, facts),

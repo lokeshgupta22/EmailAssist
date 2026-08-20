@@ -31,7 +31,7 @@ class FakeSummarizer:
         self._result = result
         self.canary = "session-test"
 
-    def summarize(self, thread, facts) -> SummaryResult:
+    def summarize(self, thread, facts, warnings=None) -> SummaryResult:
         if isinstance(self._result, Exception):
             raise self._result
         return SummaryResult(summary=self._result, model_used="fake-model")

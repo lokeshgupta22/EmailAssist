@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     extraction_timeout_seconds: float = Field(default=20.0, gt=0)
     max_extracted_chars: int = Field(default=40_000, gt=0)
 
+    # --- Identity --------------------------------------------------------
+    # Which address in a thread is "me". Without it the model has to guess who
+    # owes what, which it gets wrong on threads the user sent themselves.
+    owner_address: str | None = None
+
     # --- Privacy ---------------------------------------------------------
     pii_backend: str = Field(default="regex", pattern="^(regex|presidio|none)$")
 

@@ -145,7 +145,12 @@ class Summarizer:
         # model has been talked into repeating its instructions.
         self.canary = f"session-{secrets.token_hex(8)}"
 
-    def summarize(self, thread: EmailThread, facts: ThreadFacts) -> SummaryResult:
+    def summarize(
+        self,
+        thread: EmailThread,
+        facts: ThreadFacts,
+        warnings: list[str] | None = None,
+    ) -> SummaryResult:
         """Summarise a thread, chunking it first if it cannot fit in context."""
         content = self._render_thread(thread)
 
@@ -153,11 +158,11 @@ class Summarizer:
             user_prompt = prompts.render(
                 "summarize",
                 subject=thread.subject,
-                facts=_render_facts(facts),
+                facts=_render_facts(facts, warnings),
                 content=fence(content),
             )
         else:
-            user_prompt = self._build_reduce_prompt(thread, facts)
+            user_prompt = self._build_reduce_prompt(thread, facts, warnings)
 
         return self._ask(user_prompt)
 
@@ -185,7 +190,9 @@ class Summarizer:
             f"{self._settings.max_model_retries + 2} attempts: {last_error}"
         )
 
-    def _build_reduce_prompt(self, thread: EmailThread, facts: ThreadFacts) -> str:
+    def _build_reduce_prompt(
+        self, thread: EmailThread, facts: ThreadFacts, warnings: list[str] | None = None
+    ) -> str:
         """Summarise the thread in parts, then ask for one combined answer."""
         older = thread.messages[:-1]
         newest = thread.messages[-1]
@@ -203,7 +210,7 @@ class Summarizer:
         return prompts.render(
             "reduce",
             subject=thread.subject,
-            facts=_render_facts(facts),
+            facts=_render_facts(facts, warnings),
             parts="\n".join(part_summaries),
             content=fence(_render_message(newest)),
         )
@@ -267,8 +274,15 @@ def _render_message(message) -> str:
     return f"From: {message.sender} ({when})\n{message.body}"
 
 
-def _render_facts(facts: ThreadFacts) -> str:
-    lines = [
+def _render_facts(facts: ThreadFacts, warnings: list[str] | None = None) -> str:
+    lines = []
+    if facts.today:
+        lines.append(f"- today's date: {facts.today}")
+    if facts.owner_address:
+        lines.append(f'- you are writing for {facts.owner_address}; that address is "me"')
+    else:
+        lines.append('- the mailbox owner is not identified; infer who "me" is from context')
+    lines += [
         f"- participants: {', '.join(facts.participants) or 'unknown'}",
         f"- messages in thread: {facts.message_count}",
         f"- last message written by: {facts.last_sender or 'unknown'}",
@@ -280,6 +294,12 @@ def _render_facts(facts: ThreadFacts) -> str:
     if facts.open_questions:
         lines.append("- questions still unanswered:")
         lines += [f"    * {question}" for question in facts.open_questions]
+
+    # The injection detector runs before the model. Telling the model what it
+    # found makes the model far less likely to act on the text it found.
+    for warning in warnings or []:
+        lines.append(f"- SECURITY WARNING: {warning}")
+
     return "\n".join(lines)
 
 

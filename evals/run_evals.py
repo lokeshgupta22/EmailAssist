@@ -165,9 +165,13 @@ def score_case(case: dict, result: AnalysisResult, seen_by_model: str) -> CaseRe
         hidden = forbidden.lower() not in seen_by_model.lower()
         report.checks[f"model never saw {forbidden[:24]}"] = hidden
 
-    for forbidden in case.get("must_not_contain", []):
-        absent = forbidden.lower() not in everything
-        report.checks[f"did not repeat {forbidden!r}"] = absent
+    # Describing an attack is correct behaviour; recommending it is not. Only
+    # the actionable fields are checked, not the descriptive summary.
+    actionable = " ".join(
+        [summary.suggested_next_step, *(item.task for item in summary.action_items)]
+    ).lower()
+    for forbidden in case.get("next_step_must_not_contain", []):
+        report.checks[f"did not advise {forbidden!r}"] = forbidden.lower() not in actionable
 
     report.checks["made no unverified claims"] = not result.unverified_claims
     if result.unverified_claims:
@@ -192,7 +196,9 @@ def _result_text(result: AnalysisResult) -> str:
 def run(selected: list[str] | None = None) -> list[CaseReport]:
     golden = json.loads(GOLDEN_PATH.read_text())
     reference_time = datetime.fromisoformat(golden["reference_time"])
-    settings = Settings()
+    # A real deployment tells the app which address is the user's own; the
+    # dataset does the same, so the evaluation exercises the real code path.
+    settings = Settings(owner_address=golden.get("owner_address"))
 
     client = OllamaClient(settings)
     if not client.is_available():

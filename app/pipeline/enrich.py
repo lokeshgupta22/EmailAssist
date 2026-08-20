@@ -37,8 +37,18 @@ _SEARCH_SETTINGS = {
 }
 
 
-def collect_facts(thread: EmailThread, *, now: datetime | None = None) -> ThreadFacts:
-    """Derive everything about the thread that does not need a language model."""
+def collect_facts(
+    thread: EmailThread,
+    *,
+    now: datetime | None = None,
+    owner_address: str | None = None,
+) -> ThreadFacts:
+    """Derive everything about the thread that does not need a language model.
+
+    ``owner_address`` is which participant is the person reading the summary.
+    The model cannot work this out - every address looks alike to it - and
+    without it "who is waiting on whom" is guesswork.
+    """
     now = now or datetime.now(timezone.utc)
     latest = thread.latest_message
 
@@ -48,6 +58,8 @@ def collect_facts(thread: EmailThread, *, now: datetime | None = None) -> Thread
     ]
 
     return ThreadFacts(
+        today=now.date().isoformat(),
+        owner_address=_match_owner(owner_address, thread),
         participants=thread.participants,
         message_count=len(thread.messages),
         last_sender=latest.sender,
@@ -56,6 +68,20 @@ def collect_facts(thread: EmailThread, *, now: datetime | None = None) -> Thread
         dates_mentioned=find_dates("\n".join(text for text in sources if text), now=now),
         open_questions=_open_questions(thread),
     )
+
+
+def _match_owner(owner_address: str | None, thread: EmailThread) -> str | None:
+    """Return the configured owner address if it takes part in this thread."""
+    if not owner_address:
+        return None
+
+    wanted = owner_address.strip().lower()
+    everyone = {participant.lower() for participant in thread.participants}
+    for message in thread.messages:
+        everyone.update(address.lower() for address in message.recipients)
+        everyone.update(address.lower() for address in message.cc)
+
+    return wanted if wanted in everyone else None
 
 
 def find_dates(text: str, *, now: datetime) -> list[str]:

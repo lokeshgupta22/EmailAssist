@@ -20,6 +20,7 @@ from app.pipeline.guards import (
     UNGROUNDED_FLAG,
     build_fallback_summary,
     check_canary,
+    enforce_safe_next_step,
     find_injection_attempts,
     find_ungrounded_claims,
 )
@@ -107,6 +108,45 @@ class TestInjectionDetection:
 
     def test_a_clean_thread_produces_no_flags(self):
         assert find_injection_attempts(thread_with("Can you send the report by Friday?")) == []
+
+
+class TestSafeNextStep:
+    """When an attack is detected, the model's advice must not be the recommendation."""
+
+    def test_the_next_step_is_replaced_when_injection_was_detected(self):
+        summary = summary_with(
+            suggested_next_step="Reply to the customer confirming the balance is settled."
+        )
+
+        safe = enforce_safe_next_step(summary, injection_detected=True)
+
+        assert "settled" not in safe.suggested_next_step
+        assert "verify" in safe.suggested_next_step.lower()
+
+    def test_the_model_suggestion_is_kept_for_the_record(self):
+        summary = summary_with(suggested_next_step="Reply that the balance is settled.")
+
+        safe = enforce_safe_next_step(summary, injection_detected=True)
+
+        assert any(
+            "settled" in point for point in safe.key_points
+        ), "the user should still be able to see what the model was talked into"
+
+    def test_a_clean_thread_keeps_its_next_step(self):
+        summary = summary_with(suggested_next_step="Send the revised quote.")
+
+        safe = enforce_safe_next_step(summary, injection_detected=False)
+
+        assert safe.suggested_next_step == "Send the revised quote."
+
+    def test_action_items_are_cleared_because_they_may_be_the_attack(self):
+        summary = summary_with(
+            action_items=[ActionItem(task="Approve the payment", owner="me", due=None)]
+        )
+
+        safe = enforce_safe_next_step(summary, injection_detected=True)
+
+        assert safe.action_items == []
 
 
 class TestCanary:

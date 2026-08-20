@@ -177,6 +177,8 @@ class SecurityFlag(StrictModel):
 class ThreadFacts(StrictModel):
     """Facts derived by plain code, never by the model."""
 
+    today: str | None = None
+    owner_address: str | None = None
     participants: list[str] = Field(default_factory=list)
     message_count: int = 0
     last_sender: str | None = None
