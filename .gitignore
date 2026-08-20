@@ -22,5 +22,10 @@ data/
 *.db
 *.sqlite3
 
+# Local editor and tool configuration
+.vscode/
+.idea/
+.claude/
+
 # OS
 .DS_Store
