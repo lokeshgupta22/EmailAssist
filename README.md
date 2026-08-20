@@ -24,7 +24,23 @@ need one should not depend on one.
 
 ---
 
-## Try it
+## See it without installing anything
+
+There is a **recorded demo** you can click through: pick any of the project's
+fifteen test threads — including the ones carrying attacks — and see exactly
+what the real pipeline produced for it.
+
+It is recorded rather than live, and says so on the page. EmailAssist runs a
+language model on your own machine, which a static host cannot do. So instead
+of a fake, the demo shows genuine output captured by running the real pipeline
+locally ([`demo/capture.py`](demo/capture.py) does the capturing,
+[`demo/results.json`](demo/results.json) is the raw data, and nothing in it is
+written by hand). The page loads the application's own renderer, so what you
+see is what the real interface draws.
+
+---
+
+## Run the real thing
 
 You need [Ollama](https://ollama.com) and Python 3.10 or newer.
 
@@ -236,8 +252,13 @@ app/
   static/            the interface
 prompts/             prompt templates, as plain files
 evals/               golden dataset and scorer
+demo/                the recorded demo site
 docs/                threat model, build log
 ```
+
+`app/static/render.js` is loaded by both the application and the demo site, so
+the demo cannot drift from what the real interface shows. A test fails if the
+demo's copies of the shared assets fall out of step.
 
 [docs/build-log.md](docs/build-log.md) explains each commit in plain language:
 what was built and why that approach was chosen.

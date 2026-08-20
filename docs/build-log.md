@@ -360,6 +360,52 @@ warning just reads as one warning.
 
 ---
 
+### 26. `chore: rename the project to EmailAssist`
+
+**What:** Application title, package name and the `EMAIL_AGENT_*` environment
+prefix all became `EMAILASSIST_*`.
+
+**Why:** The repository is named EmailAssist, and a project whose code calls
+itself something else is a small, constant source of confusion.
+
+---
+
+### 27. The recorded demo site
+
+**What:** A static site at `demo/` that lets anyone click through the fifteen
+test threads and see what the pipeline produced for each one, without
+installing anything.
+
+**Why, and the honest bit:** EmailAssist cannot be deployed to a serverless
+host. It runs a language model on your machine — that is the product, not an
+implementation detail, and it is what the threat model rests on. Vercel has no
+persistent process to hold a model, a size limit far below a 2.5 GB model, and
+a timeout shorter than one analysis. Making it "work" there would mean calling
+a hosted model API, at which point the email leaves the machine and the project
+becomes the thing it was built not to be.
+
+So the demo is **recorded, and says so on the page**. `demo/capture.py` runs
+the genuine pipeline against the test threads on a machine that does have the
+model, and records exactly what came back. Nothing in the repository fabricates
+demo output; there is no code path that could.
+
+Two design decisions worth noting:
+
+- **The demo uses the application's own renderer.** `render.js` was split out
+  of `app.js` so both pages draw a result with the same code. A demo that
+  reimplemented the interface would drift from it, and then it would be showing
+  something the real product does not do.
+- **Copies are guarded by a test.** Vercel serves `demo/` as-is and cannot
+  reach outside it, so the shared stylesheet and renderer are copied in.
+  Copies go stale, so `demo/sync_assets.py` is the only way they are updated
+  and a test fails if they drift.
+
+`tests/test_demo.py` also checks the honesty claims: the page must say plainly
+that it is recorded, must link to both the capture script and the raw data, and
+the recorded source emails must be byte-identical to the real fixtures.
+
+---
+
 ## Where it ended up
 
 - **8 pipeline stages**, of which one uses a language model
