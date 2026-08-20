@@ -35,5 +35,16 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "C4", "RET", "PTH", "ARG"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares dependencies as default values on purpose; these calls are
+# evaluated once at import and are not the mutable-default trap B008 targets.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Query",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG"]

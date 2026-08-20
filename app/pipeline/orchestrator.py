@@ -77,7 +77,7 @@ class Pipeline:
         flags += model_flags
 
         summary = _restore(summary, mapping)
-        unverified = guards.find_ungrounded_claims(summary, thread)
+        unverified = guards.find_ungrounded_claims(summary, thread, now=now)
 
         return AnalysisResult(
             thread_subject=thread.subject,

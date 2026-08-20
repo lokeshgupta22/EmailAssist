@@ -21,7 +21,7 @@ an error page.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import (
     ActionItem,
@@ -155,32 +155,42 @@ def check_canary(summary: Summary, canary: str) -> list[SecurityFlag]:
 # ---------------------------------------------------------------------------
 
 
-def find_ungrounded_claims(summary: Summary, thread: EmailThread) -> list[str]:
+def find_ungrounded_claims(
+    summary: Summary, thread: EmailThread, *, now: datetime | None = None
+) -> list[str]:
     """Return the specifics in the summary that do not appear in the source.
 
     Dates, amounts, percentages and email addresses are the details a reader
     acts on, and the details a model is most likely to get wrong, so each one
-    must be traceable back to the thread or an attachment.
+    must be traceable back to the thread, its headers or an attachment.
+
+    ``now`` must be the same reference time the enrichment stage used. A thread
+    saying "before Friday" resolves to a real date only relative to a moment,
+    and checking it against a different moment would report a correct deadline
+    as invented.
     """
     source = _source_text(thread)
-    source_dates = _dates_in(source)
+    source_dates = _dates_in(source, now=now)
+    claimed = _all_text(summary)
     claims: list[str] = []
 
-    for value in _ISO_DATE_RE.findall(_all_text(summary)):
+    for value in _ISO_DATE_RE.findall(claimed):
         if value not in source_dates:
             claims.append(f"the date {value} does not appear in the thread")
 
+    # Dates are already accounted for; removing them stops the year inside one
+    # being reported a second time as a stray number.
+    without_dates = _ISO_DATE_RE.sub(" ", claimed)
+
     for pattern, label in ((_AMOUNT_RE, "amount"), (_PERCENT_RE, "figure"), (_EMAIL_RE, "address")):
-        for value in pattern.findall(_all_text(summary)):
-            if _ISO_DATE_RE.fullmatch(value):
-                continue
+        for value in pattern.findall(without_dates):
             if _normalise(value) not in _normalise(source):
                 claims.append(f"the {label} {value} does not appear in the thread")
 
     return list(dict.fromkeys(claims))
 
 
-def _dates_in(text: str) -> set[str]:
+def _dates_in(text: str, *, now: datetime | None) -> set[str]:
     """Every date in the source, in ISO form, however it was written.
 
     Imported lazily: the enrichment stage owns date handling, and this keeps the
@@ -188,7 +198,7 @@ def _dates_in(text: str) -> set[str]:
     """
     from app.pipeline.enrich import find_dates
 
-    reference = datetime(2000, 1, 1)
+    reference = now or datetime.now(timezone.utc)
     return set(_ISO_DATE_RE.findall(text)) | set(find_dates(text, now=reference))
 
 
@@ -269,6 +279,10 @@ def _source_text(thread: EmailThread) -> str:
     parts = [thread.subject]
     for message in thread.messages:
         parts += [message.sender, *message.recipients, *message.cc, message.body]
+        if message.sent_at:
+            # The day a message was sent is as much a fact of the thread as
+            # anything written in it.
+            parts.append(message.sent_at.date().isoformat())
     parts += [attachment.extracted_text for attachment in thread.attachments if attachment.has_text]
     return "\n".join(part for part in parts if part)
 

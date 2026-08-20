@@ -37,6 +37,9 @@ def summary_with(**overrides) -> Summary:
     return Summary.model_validate(base | overrides)
 
 
+NOW = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
+
+
 def thread_with(body: str, subject: str = "Q3 budget") -> EmailThread:
     return EmailThread(
         subject=subject,
@@ -192,6 +195,40 @@ class TestGrounding:
         summary = summary_with(summary="There are 3 open points across 2 messages.")
 
         assert find_ungrounded_claims(summary, thread) == []
+
+    def test_the_date_a_message_was_sent_counts_as_grounded(self):
+        thread = EmailThread(
+            subject="s",
+            messages=[
+                EmailMessage(
+                    sender="alice@example.com",
+                    sent_at=datetime(2026, 8, 19, 8, 0, tzinfo=timezone.utc),
+                    body="Any update?",
+                )
+            ],
+        )
+        summary = summary_with(summary="Alice wrote on 2026-08-19 asking for an update.")
+
+        assert (
+            find_ungrounded_claims(summary, thread) == []
+        ), "a date taken from the message headers is a fact of the thread"
+
+    def test_a_relative_deadline_resolves_against_the_same_reference_time(self):
+        thread = thread_with("We need the figure before Friday.")
+        summary = summary_with(suggested_next_step="Send the figure by 2026-08-21.")
+
+        claims = find_ungrounded_claims(summary, thread, now=NOW)
+
+        assert claims == [], "Friday must resolve the same way it did for the facts"
+
+    def test_a_year_inside_a_date_is_not_reported_as_an_amount(self):
+        thread = thread_with("Please review the deck.")
+        summary = summary_with(summary="The deadline is 2026-12-25.")
+
+        claims = find_ungrounded_claims(summary, thread)
+
+        assert len(claims) == 1, f"one invented date should give one message, got: {claims}"
+        assert "2026-12-25" in claims[0]
 
     def test_action_item_due_dates_are_checked_too(self):
         thread = thread_with("Please review the deck.")
