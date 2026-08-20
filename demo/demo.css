@@ -1,17 +1,8 @@
-/* Styles used only by the demo site. The shared look comes from style.css,
-   which is the application's own stylesheet, copied unchanged. */
-
-.repo-link {
-  font-size: 13px;
-  color: var(--accent);
-  text-decoration: none;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 14px;
-  background: var(--panel);
-}
-
-.repo-link:hover { border-color: var(--accent); }
+/* Styles used only by the demo site. The shared look — sidebar, workspace,
+   cards, badges, buttons, history-style list rows — comes from style.css,
+   which is the application's own stylesheet, copied unchanged, so the demo
+   can never drift from what the real interface looks like. This file only
+   adds the marketing sections the app itself doesn't have. */
 
 .notice {
   background: var(--panel);
@@ -19,69 +10,30 @@
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 16px 20px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
+  max-width: 760px;
 }
 
 .notice strong { display: block; margin-bottom: 6px; }
 .notice p { margin: 0 0 8px; font-size: 13.5px; color: var(--ink-soft); }
 .notice p:last-child { margin-bottom: 0; }
 .notice a { color: var(--accent); }
-.notice-meta { font-size: 12.5px; }
 
 main h2 { font-size: 16px; margin: 0 0 4px; }
-.picker-help { margin: 0 0 14px; color: var(--ink-soft); font-size: 13px; }
 
-.picker {
-  list-style: none;
-  margin: 0 0 32px;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+.picker-error { color: var(--high); font-size: 13.5px; margin: 12px 0 0; }
+
+/* The upload form is real markup, greyed out rather than removed, so the
+   demo shows the actual control instead of a mocked-up substitute. */
+.dropzone.is-disabled {
+  cursor: not-allowed;
+  opacity: .55;
 }
-
-.picker-button {
-  font: inherit;
-  text-align: left;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
-  display: grid;
-  gap: 3px;
-  position: relative;
-}
-
-.picker-button:hover { border-color: var(--accent); }
-
-.picker-button.is-selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.picker-title { font-weight: 600; font-size: 14px; color: var(--ink); }
-.picker-blurb { font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; }
-
-.picker-flag {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--high);
-  background: var(--high-soft);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.picker-error { color: var(--high); font-size: 13.5px; }
+.dropzone.is-disabled:hover { border-color: var(--line); }
 
 .source {
+  max-width: 760px;
+  margin-top: 16px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);

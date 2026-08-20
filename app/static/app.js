@@ -9,7 +9,7 @@
 
 const MAX_FILES = 20;
 
-const state = { files: [] };
+const state = { files: [], activeHistoryId: null };
 
 const dropzone = el("dropzone");
 const fileInput = el("file-input");
@@ -18,6 +18,7 @@ const analyseButton = el("analyse-button");
 const clearButton = el("clear-button");
 const statusBox = el("status");
 const resultBox = el("result");
+const uploadView = el("upload-view");
 
 /* ---------------------------------------------------------------- files */
 
@@ -56,7 +57,6 @@ function clearFiles() {
   fileInput.value = "";
   renderFiles();
   hide(statusBox);
-  hide(resultBox);
 }
 
 function formatSize(bytes) {
@@ -88,13 +88,55 @@ async function analyse(event) {
     }
 
     hide(statusBox);
-    renderResult(payload);
+    state.activeHistoryId = payload.id ?? null;
+    showResult(payload);
     await loadHistory();
   } catch (error) {
     showStatus(`Could not reach the local server: ${error.message}`, "error");
   } finally {
     analyseButton.disabled = state.files.length === 0;
   }
+}
+
+/* ------------------------------------------------------------------ views */
+
+function showResult(result) {
+  hide(uploadView);
+  renderResult(result);
+}
+
+function showUploadView() {
+  state.activeHistoryId = null;
+  hide(resultBox);
+  hide(statusBox);
+  uploadView.hidden = false;
+  highlightActiveHistoryItem();
+}
+
+async function openHistoryEntry(id) {
+  state.activeHistoryId = id;
+  highlightActiveHistoryItem();
+
+  try {
+    const response = await fetch(`/api/history/${id}`);
+    if (!response.ok) {
+      showUploadView();
+      showStatus("That analysis is no longer available.", "error");
+      await loadHistory();
+      return;
+    }
+    const payload = await response.json();
+    showResult(payload.result);
+  } catch (error) {
+    showUploadView();
+    showStatus(`Could not reach the local server: ${error.message}`, "error");
+  }
+}
+
+function highlightActiveHistoryItem() {
+  el("history-list").querySelectorAll(".history-item").forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.id === String(state.activeHistoryId));
+  });
 }
 
 /* -------------------------------------------------------------- history */
@@ -112,6 +154,7 @@ async function loadHistory() {
     }
 
     payload.entries.forEach((entry) => list.append(historyRow(entry)));
+    highlightActiveHistoryItem();
   } catch {
     list.replaceChildren(emptyNote("History could not be loaded."));
   }
@@ -119,40 +162,69 @@ async function loadHistory() {
 
 function historyRow(entry) {
   const row = document.createElement("li");
+  row.className = "history-item";
+  row.dataset.id = String(entry.id);
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
+
+  const top = document.createElement("div");
+  top.className = "history-item-top";
 
   const badge = document.createElement("span");
-  badge.className = `badge badge--${entry.urgency}`;
+  badge.className = `badge badge--sm badge--${entry.urgency}`;
   badge.textContent = entry.urgency;
-
-  const subject = document.createElement("div");
-  subject.className = "subject";
-  subject.textContent = entry.thread_subject;
-  const step = document.createElement("span");
-  step.textContent = entry.suggested_next_step;
-  subject.append(step);
 
   const when = document.createElement("time");
   when.dateTime = entry.created_at;
-  when.textContent = new Date(entry.created_at).toLocaleString();
+  when.textContent = new Date(entry.created_at).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+
+  top.append(badge, when);
+
+  const subject = document.createElement("p");
+  subject.className = "history-item-subject";
+  subject.textContent = entry.thread_subject;
+
+  const step = document.createElement("p");
+  step.className = "history-item-step";
+  step.textContent = entry.suggested_next_step;
 
   const remove = document.createElement("button");
   remove.type = "button";
-  remove.className = "icon-button";
-  remove.textContent = "Delete";
-  remove.addEventListener("click", () => deleteEntry(entry.id));
+  remove.className = "history-item-delete";
+  remove.title = "Delete this analysis";
+  remove.setAttribute("aria-label", "Delete this analysis");
+  remove.textContent = "✕";
+  remove.addEventListener("click", (event) => {
+    event.stopPropagation();
+    deleteEntry(entry.id);
+  });
 
-  row.append(badge, subject, when, remove);
+  const open = () => openHistoryEntry(entry.id);
+  row.addEventListener("click", open);
+  row.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      open();
+    }
+  });
+
+  row.append(top, subject, step, remove);
   return row;
 }
 
 async function deleteEntry(id) {
   await fetch(`/api/history/${id}`, { method: "DELETE" });
+  if (state.activeHistoryId === id) showUploadView();
   await loadHistory();
 }
 
 async function purgeHistory() {
   if (!window.confirm("Delete every stored analysis? This cannot be undone.")) return;
   await fetch("/api/history", { method: "DELETE" });
+  showUploadView();
   await loadHistory();
 }
 
@@ -230,6 +302,10 @@ fileInput.addEventListener("change", () => addFiles(fileInput.files));
 el("upload-form").addEventListener("submit", analyse);
 clearButton.addEventListener("click", clearFiles);
 el("purge-button").addEventListener("click", purgeHistory);
+el("new-analysis-button").addEventListener("click", () => {
+  clearFiles();
+  showUploadView();
+});
 
 loadHealth();
 loadHistory();
