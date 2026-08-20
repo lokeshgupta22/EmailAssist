@@ -35,8 +35,8 @@ def test_allowed_mime_types_are_an_allowlist():
 
 
 def test_env_variables_override_defaults(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("EMAIL_AGENT_MODEL_NAME", "llama3.2:3b")
-    monkeypatch.setenv("EMAIL_AGENT_MAX_ATTACHMENT_BYTES", "1024")
+    monkeypatch.setenv("EMAILASSIST_MODEL_NAME", "llama3.2:3b")
+    monkeypatch.setenv("EMAILASSIST_MAX_ATTACHMENT_BYTES", "1024")
 
     settings = Settings()
 

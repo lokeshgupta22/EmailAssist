@@ -70,7 +70,7 @@ def create_app(
     store = store or HistoryStore(settings.database_path)
 
     app = FastAPI(
-        title="Email Agent",
+        title="EmailAssist",
         description="Local-first email thread summariser with a small language model in the loop.",
         version="0.1.0",
     )

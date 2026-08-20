@@ -107,7 +107,7 @@ class OllamaClient:
         except httpx.TimeoutException as exc:
             raise ModelUnavailableError(
                 "the local model took too long to answer; try a smaller model "
-                "or raise EMAIL_AGENT_REQUEST_TIMEOUT_SECONDS"
+                "or raise EMAILASSIST_REQUEST_TIMEOUT_SECONDS"
             ) from exc
         except httpx.HTTPError as exc:
             raise ModelUnavailableError(

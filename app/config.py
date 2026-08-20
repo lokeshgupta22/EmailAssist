@@ -2,7 +2,7 @@
 
 Every tunable lives here rather than being scattered through the pipeline, so
 the security posture of the app can be reviewed in one place. Values can be
-overridden with ``EMAIL_AGENT_*`` environment variables or a local ``.env``
+overridden with ``EMAILASSIST_*`` environment variables or a local ``.env``
 file, which keeps deployment concerns out of the code.
 """
 
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     """Runtime configuration with conservative, local-only defaults."""
 
     model_config = SettingsConfigDict(
-        env_prefix="EMAIL_AGENT_",
+        env_prefix="EMAILASSIST_",
         env_file=".env",
         extra="ignore",
         frozen=True,

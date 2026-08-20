@@ -249,7 +249,7 @@ class TestDefaultWiring:
 
         app = create_app(settings=Settings(database_path=tmp_path / "h.db"))
 
-        assert app.title == "Email Agent"
+        assert app.title == "EmailAssist"
 
     def test_the_default_summarizer_is_the_real_one(self):
         from app.main import _default_summarizer

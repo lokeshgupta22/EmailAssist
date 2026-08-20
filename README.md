@@ -1,4 +1,4 @@
-# Email Agent
+# EmailAssist
 
 Drop an email thread in, get back a summary, the action items, and one clear
 next step. It runs entirely on your own machine — you can unplug the network
@@ -47,7 +47,7 @@ works, because nothing ever leaves the machine.
 ### Tell it your address
 
 ```bash
-echo "EMAIL_AGENT_OWNER_ADDRESS=you@yourcompany.com" >> .env
+echo "EMAILASSIST_OWNER_ADDRESS=you@yourcompany.com" >> .env
 ```
 
 Without this the app has to guess which participant is you, and gets "who is
