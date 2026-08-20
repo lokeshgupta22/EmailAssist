@@ -323,3 +323,55 @@ to do.
 Also added: "who is waiting on whom" is now corrected by code in the two cases
 where code can tell better than the model, and the prompt forbids using any
 date that is not in the thread or in the verified facts.
+
+---
+
+### 24. `docs` + `test`: documentation and the promises made testable
+
+**What:** A README, a threat model listing twenty threats and six things this
+deliberately does *not* defend against, and two sets of tests that turn written
+promises into checked ones.
+
+**Why:** Two claims in the README were documentation only, which means they
+were one careless change away from being false:
+
+- *"Nothing leaves the machine"* is now a test. No application file may
+  reference a remote host, the page may load only its own assets, and no
+  pipeline stage except the model client may import a networking library. A
+  future change that adds a CDN font or an analytics call fails the suite.
+- *"The email is fenced as untrusted data"* is now a test over the prompt
+  templates themselves: the content must sit between the markers, and the
+  do-not-follow rule must be repeated **after** the untrusted text, not only
+  before it. A well-meaning edit to the wording fails the suite.
+
+The threat model's "what this does not defend against" section is the part
+worth reading. A security document that only lists wins is marketing.
+
+---
+
+### 25. `fix(ui): group security warnings by kind`
+
+**What:** Several findings of the same kind now share one banner.
+
+**Why:** The injection fixture trips two detectors at once — an instruction to
+ignore earlier instructions, and an attempt to change the assistant's role —
+which produced two banners with the same heading. Nothing is hidden; the
+warning just reads as one warning.
+
+---
+
+## Where it ended up
+
+- **8 pipeline stages**, of which one uses a language model
+- **390 tests**, 97% line coverage, every commit gated by black, ruff and the
+  suite
+- **15/15 on the golden dataset**, reproduced on two consecutive runs, up from
+  7/15 on the first
+- **~18 seconds** per thread on an 8 GB M1, entirely offline
+
+The evaluation, not the unit tests, is what made the product better. Unit tests
+confirmed each part did what I had specified. The evals kept showing that what
+I had specified was not enough — the app knew today's date and never told the
+model; it knew whose mailbox this was and never said; it detected an attack and
+kept the finding to itself while the model went on to recommend complying with
+it. Each of those was invisible until the whole thing ran on realistic mail.
