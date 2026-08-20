@@ -160,6 +160,28 @@ class TestCollectFacts:
 
         assert facts.open_questions == ["Can you confirm the budget?"]
 
+    def test_a_reply_that_quotes_the_question_it_answers_is_not_reopened(self):
+        """Regression: a reply that repeats the question it is answering -
+        whether the mail client quoted it verbatim or the reply restated it
+        in prose - must not be mistaken for the replier freshly asking their
+        own question back.
+        """
+        thread = EmailThread(
+            subject="s",
+            messages=[
+                message("alice@example.com", "Could you send me the job description?", day=11),
+                message(
+                    "bob@example.com",
+                    "Could you send me the job description? Please find it attached.",
+                    day=12,
+                ),
+            ],
+        )
+
+        facts = collect_facts(thread, now=NOW)
+
+        assert facts.open_questions == [], "bob is answering alice's question, not asking his own"
+
     def test_a_thread_without_dates_reports_nothing_rather_than_guessing(self):
         thread = EmailThread(subject="s", messages=[message(body="no dates here")])
 

@@ -131,6 +131,13 @@ def _open_questions(thread: EmailThread) -> list[str]:
     A question is treated as answered once the other side has written back,
     which is a rough rule but a predictable one - and it is always visible to
     the user, unlike a judgement made inside a model.
+
+    That rule alone is not enough: a reply often repeats the question it is
+    answering, whether quoted verbatim by the mail client or restated in
+    prose ("Regarding your question: ..."). Read naively, that repetition
+    looks like the replier freshly asking their own question back. Any
+    question that already appears in an earlier message from someone else is
+    therefore dropped here - it is being addressed, not asked.
     """
     latest = thread.latest_message
     questions = find_open_questions(latest.body)
@@ -139,6 +146,14 @@ def _open_questions(thread: EmailThread) -> list[str]:
         if message.sender != latest.sender:
             break
         questions = find_open_questions(message.body) + questions
+
+    already_asked_by_someone_else = {
+        question.lower()
+        for message in thread.messages
+        if message.sender != latest.sender
+        for question in find_open_questions(message.body)
+    }
+    questions = [q for q in questions if q.lower() not in already_asked_by_someone_else]
 
     return list(dict.fromkeys(questions))
 
