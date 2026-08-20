@@ -8,98 +8,105 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="mark" aria-hidden="true">✉</span>
-      <div>
-        <h1>EmailAssist</h1>
-        <p class="tagline">Summarises an email thread and tells you what to do next &mdash; entirely on this machine.</p>
-      </div>
-    </div>
-    <div id="health" class="health" role="status" aria-live="polite">
-      <span class="dot dot--unknown"></span><span class="health-text">checking the local model&hellip;</span>
-    </div>
-  </header>
-
-  <main>
-    <section aria-labelledby="upload-heading">
-      <h2 id="upload-heading" class="visually-hidden">Upload an email thread</h2>
-      <form id="upload-form">
-        <div id="dropzone" class="dropzone" tabindex="0" role="button"
-             aria-describedby="dropzone-help">
-          <p class="dropzone-title">Drop <code>.eml</code> files here</p>
-          <p id="dropzone-help" class="dropzone-help">
-            or <span class="link">choose files</span> &mdash; export a thread from Gmail or Outlook
-            as <code>.eml</code>. Several files are treated as one conversation.
-          </p>
-          <input type="file" id="file-input" name="files" accept=".eml,message/rfc822" multiple hidden>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">✉</span>
+        <div>
+          <p class="brand-name">EmailAssist</p>
+          <p class="brand-tag">Local email triage</p>
         </div>
-        <ul id="file-list" class="file-list"></ul>
-        <div class="actions">
-          <button type="submit" id="analyse-button" class="button button--primary" disabled>
-            Analyse thread
-          </button>
-          <button type="button" id="clear-button" class="button" hidden>Clear</button>
-        </div>
-      </form>
-    </section>
-
-    <section id="status" class="status" hidden aria-live="polite"></section>
-
-    <section id="result" class="result" hidden aria-labelledby="result-heading">
-      <h2 id="result-heading" class="visually-hidden">Analysis</h2>
-
-      <div id="banners" class="banners"></div>
-
-      <article class="card card--primary">
-        <div class="card-head">
-          <h3 id="result-subject"></h3>
-          <span id="urgency" class="badge"></span>
-        </div>
-        <p id="summary-text" class="summary-text"></p>
-        <div class="next-step">
-          <span class="next-step-label">Do this next</span>
-          <p id="next-step-text"></p>
-        </div>
-      </article>
-
-      <div class="grid">
-        <article class="card" id="actions-card">
-          <h3>Action items</h3>
-          <ul id="action-items" class="action-items"></ul>
-        </article>
-
-        <article class="card" id="points-card">
-          <h3>Key points</h3>
-          <ul id="key-points" class="bullets"></ul>
-        </article>
-
-        <article class="card" id="facts-card">
-          <h3>Checked facts <span class="hint">found by code, not by the model</span></h3>
-          <dl id="facts" class="facts"></dl>
-        </article>
-
-        <article class="card" id="attachments-card">
-          <h3>Attachments</h3>
-          <ul id="attachments" class="attachments"></ul>
-        </article>
       </div>
 
-      <p id="provenance" class="provenance"></p>
-    </section>
+      <button type="button" id="new-analysis-button" class="button button--primary sidebar-new">
+        + New analysis
+      </button>
 
-    <section class="history" aria-labelledby="history-heading">
-      <div class="history-head">
-        <h2 id="history-heading">History</h2>
-        <button type="button" id="purge-button" class="button button--danger">Delete everything</button>
+      <div id="health" class="health" role="status" aria-live="polite">
+        <span class="dot dot--unknown"></span><span class="health-text">checking the local model&hellip;</span>
       </div>
-      <ul id="history-list" class="history-list"></ul>
-    </section>
-  </main>
 
-  <footer>
-    <p>Runs locally. Nothing is uploaded anywhere &mdash; try it with the network switched off.</p>
-  </footer>
+      <div class="history" aria-labelledby="history-heading">
+        <div class="history-head">
+          <h2 id="history-heading">History</h2>
+          <button type="button" id="purge-button" class="text-button">Clear all</button>
+        </div>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+
+      <p class="sidebar-footer">Runs locally. Nothing is uploaded anywhere.</p>
+    </aside>
+
+    <main class="workspace">
+      <section id="upload-view" aria-labelledby="upload-heading">
+        <h1 id="upload-heading">Analyse a thread</h1>
+        <p class="view-tagline">Drop in an exported email thread and get a summary, action items and what to do next &mdash; entirely on this machine.</p>
+
+        <form id="upload-form">
+          <div id="dropzone" class="dropzone" tabindex="0" role="button"
+               aria-describedby="dropzone-help">
+            <p class="dropzone-title">Drop <code>.eml</code> files here</p>
+            <p id="dropzone-help" class="dropzone-help">
+              or <span class="link">choose files</span> &mdash; export a thread from Gmail or Outlook
+              as <code>.eml</code>. Several files are treated as one conversation.
+            </p>
+            <input type="file" id="file-input" name="files" accept=".eml,message/rfc822" multiple hidden>
+          </div>
+          <ul id="file-list" class="file-list"></ul>
+          <div class="actions">
+            <button type="submit" id="analyse-button" class="button button--primary" disabled>
+              Analyse thread
+            </button>
+            <button type="button" id="clear-button" class="button" hidden>Clear</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="status" class="status" hidden aria-live="polite"></section>
+
+      <section id="result" class="result" hidden aria-labelledby="result-heading">
+        <h2 id="result-heading" class="visually-hidden">Analysis</h2>
+
+        <div id="banners" class="banners"></div>
+
+        <article class="card card--primary">
+          <div class="card-head">
+            <h3 id="result-subject"></h3>
+            <span id="urgency" class="badge"></span>
+          </div>
+          <p id="summary-text" class="summary-text"></p>
+          <div class="next-step">
+            <span class="next-step-label">Do this next</span>
+            <p id="next-step-text"></p>
+          </div>
+        </article>
+
+        <div class="grid">
+          <article class="card" id="actions-card">
+            <h3>Action items</h3>
+            <ul id="action-items" class="action-items"></ul>
+          </article>
+
+          <article class="card" id="points-card">
+            <h3>Key points</h3>
+            <ul id="key-points" class="bullets"></ul>
+          </article>
+
+          <article class="card" id="facts-card">
+            <h3>Checked facts <span class="hint">found by code, not by the model</span></h3>
+            <dl id="facts" class="facts"></dl>
+          </article>
+
+          <article class="card" id="attachments-card">
+            <h3>Attachments</h3>
+            <ul id="attachments" class="attachments"></ul>
+          </article>
+        </div>
+
+        <p id="provenance" class="provenance"></p>
+      </section>
+    </main>
+  </div>
 
   <script src="/static/render.js"></script>
   <script src="/static/app.js"></script>
