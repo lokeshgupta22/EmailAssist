@@ -21,7 +21,7 @@ from dateparser.search import search_dates
 from app.models import EmailThread, ThreadFacts
 
 _QUESTION_RE = re.compile(r"[^.!?\n]*\?")
-_MIN_QUESTION_WORDS = 3
+_MIN_QUESTION_WORDS = 2
 
 # Fragments that look like dates to a fuzzy parser but are not: version
 # numbers, money and long reference numbers.

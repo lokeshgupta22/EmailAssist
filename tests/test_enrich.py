@@ -87,6 +87,9 @@ class TestFindOpenQuestions:
 
         assert questions == ["Could you confirm the final number by Friday?"]
 
+    def test_short_real_questions_are_kept(self):
+        assert find_open_questions("Any update?") == ["Any update?"]
+
     def test_rhetorical_fragments_are_skipped(self):
         assert find_open_questions("?") == []
         assert find_open_questions("ok?") == []
