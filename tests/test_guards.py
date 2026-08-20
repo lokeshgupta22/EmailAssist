@@ -230,6 +230,29 @@ class TestGrounding:
         assert len(claims) == 1, f"one invented date should give one message, got: {claims}"
         assert "2026-12-25" in claims[0]
 
+    def test_a_garbled_date_is_reported(self):
+        # A small model once wrote "2026-0:8-21" for a date it had been given.
+        thread = thread_with("Please reply by 2026-08-21.")
+        summary = summary_with(suggested_next_step="Send the quote by 2026-0:8-21.")
+
+        claims = find_ungrounded_claims(summary, thread)
+
+        assert any("not a valid date" in claim for claim in claims)
+
+    def test_a_well_formed_date_is_not_reported_as_garbled(self):
+        thread = thread_with("Please reply by 2026-08-21.")
+        summary = summary_with(suggested_next_step="Send the quote by 2026-08-21.")
+
+        assert find_ungrounded_claims(summary, thread) == []
+
+    def test_a_date_written_with_slashes_is_not_reported_as_garbled(self):
+        thread = thread_with("Please reply by 21/08/2026.")
+        summary = summary_with(suggested_next_step="Send it by 2026-08-21.")
+
+        claims = find_ungrounded_claims(summary, thread)
+
+        assert not any("not a valid date" in claim for claim in claims)
+
     def test_action_item_due_dates_are_checked_too(self):
         thread = thread_with("Please review the deck.")
         summary = summary_with(

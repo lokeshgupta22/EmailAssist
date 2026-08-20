@@ -83,6 +83,9 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 _ISO_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+# Anything shaped like a written date, so a mangled one can be told apart
+# from a correctly written one.
+_DATE_SHAPED_RE = re.compile(r"\b\d{4}\D{1,2}\d{1,2}\D{1,2}\d{1,2}\b")
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 # Amounts worth checking: anything with a thousands separator, a decimal part,
 # or four or more digits. Small counting numbers are ignored deliberately.
@@ -223,9 +226,16 @@ def find_ungrounded_claims(
         if value not in source_dates:
             claims.append(f"the date {value} does not appear in the thread")
 
+    # A small model will occasionally mistype a date it was given correctly,
+    # producing something like "2026-0:8-21". That must never be shown as if it
+    # were a real deadline.
+    for value in _DATE_SHAPED_RE.findall(claimed):
+        if not _ISO_DATE_RE.fullmatch(value) and value not in source:
+            claims.append(f"'{value}' is not a valid date and may be mistyped")
+
     # Dates are already accounted for; removing them stops the year inside one
     # being reported a second time as a stray number.
-    without_dates = _ISO_DATE_RE.sub(" ", claimed)
+    without_dates = _DATE_SHAPED_RE.sub(" ", _ISO_DATE_RE.sub(" ", claimed))
 
     for pattern, label in ((_AMOUNT_RE, "amount"), (_PERCENT_RE, "figure"), (_EMAIL_RE, "address")):
         for value in pattern.findall(without_dates):
