@@ -1,18 +1,24 @@
 /*
  * The demo site.
  *
- * It has no backend. Results were produced by running the real pipeline
- * locally against the project's test threads and recorded in results.json;
- * this file only lets you pick one and hands it to render.js, which is the
- * same code the live application uses to draw a result.
+ * It has no backend and cannot run a language model, so the "Analyse a
+ * thread" view is real but disabled. What it can do is offer fifteen
+ * genuine results, recorded by running the real pipeline locally against
+ * the project's test threads (see results.json) and handed here to
+ * render.js, which is the same code the live application uses to draw a
+ * result. The History list is therefore not a picker widget of its own; it
+ * is the application's history list, just pre-filled instead of empty.
  */
 
 "use strict";
 
-const state = { threads: [], selected: null };
+const state = { threads: [], activeIndex: null };
+
+const uploadView = el("upload-view");
+const resultBox = el("result");
 
 async function load() {
-  const picker = el("picker");
+  const list = el("history-list");
   try {
     const data = await (await fetch("results.json")).json();
     state.threads = data.threads;
@@ -22,49 +28,58 @@ async function load() {
         year: "numeric",
         month: "long",
         day: "numeric",
-      })} with ${data.model}, analysed as if today were ${data.reference_time.slice(0, 10)}.`;
+      })} with ${data.model}.`;
 
-    picker.replaceChildren();
-    state.threads.forEach((thread, index) => picker.append(pickerRow(thread, index)));
-
-    select(0);
+    list.replaceChildren();
+    state.threads.forEach((thread, index) => list.append(historyRow(thread, index)));
   } catch (error) {
-    picker.replaceChildren();
+    list.replaceChildren();
     const failure = document.createElement("li");
     failure.className = "picker-error";
     failure.textContent = `The recorded results could not be loaded: ${error.message}`;
-    picker.append(failure);
+    list.append(failure);
   }
 }
 
-function pickerRow(thread, index) {
+function historyRow(thread, index) {
   const row = document.createElement("li");
+  row.className = "history-item history-item--static";
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "picker-button";
-  button.dataset.index = String(index);
+  const top = document.createElement("div");
+  top.className = "history-item-top";
 
-  const title = document.createElement("span");
-  title.className = "picker-title";
-  title.textContent = thread.title;
+  const badge = document.createElement("span");
+  badge.className = `badge badge--sm badge--${thread.result.summary.urgency}`;
+  badge.textContent = thread.result.summary.urgency;
+  top.append(badge);
 
-  const blurb = document.createElement("span");
-  blurb.className = "picker-blurb";
-  blurb.textContent = thread.blurb;
-
-  button.append(title, blurb);
-
-  const flags = thread.result.security_flags;
-  if (flags.length > 0) {
-    const warning = document.createElement("span");
-    warning.className = "picker-flag";
-    warning.textContent = "flagged";
-    button.append(warning);
+  if (thread.result.security_flags.length > 0) {
+    const flag = document.createElement("span");
+    flag.className = "badge badge--sm badge--high";
+    flag.textContent = "flagged";
+    top.append(flag);
   }
 
-  button.addEventListener("click", () => select(index));
-  row.append(button);
+  const subject = document.createElement("p");
+  subject.className = "history-item-subject";
+  subject.textContent = thread.title;
+
+  const step = document.createElement("p");
+  step.className = "history-item-step";
+  step.textContent = thread.blurb;
+
+  const open = () => select(index);
+  row.addEventListener("click", open);
+  row.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      open();
+    }
+  });
+
+  row.append(top, subject, step);
   return row;
 }
 
@@ -72,13 +87,31 @@ function select(index) {
   const thread = state.threads[index];
   if (!thread) return;
 
-  state.selected = index;
-  document.querySelectorAll(".picker-button").forEach((button) => {
-    button.classList.toggle("is-selected", Number(button.dataset.index) === index);
-  });
+  state.activeIndex = index;
+  highlightActiveHistoryItem();
 
+  hide(uploadView);
   renderResult(thread.result);
   el("source-text").textContent = thread.source;
 }
+
+function highlightActiveHistoryItem() {
+  el("history-list").querySelectorAll(".history-item").forEach((item, index) => {
+    item.classList.toggle("is-active", index === state.activeIndex);
+  });
+}
+
+function showUploadView() {
+  state.activeIndex = null;
+  highlightActiveHistoryItem();
+  hide(resultBox);
+  uploadView.hidden = false;
+}
+
+function hide(node) {
+  node.hidden = true;
+}
+
+el("new-analysis-button").addEventListener("click", showUploadView);
 
 load();

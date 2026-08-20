@@ -10,147 +10,181 @@
   <link rel="stylesheet" href="demo.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="mark" aria-hidden="true">✉</span>
-      <div>
-        <h1>EmailAssist</h1>
-        <p class="tagline">Summarises an email thread and tells you what to do next &mdash; entirely on your own machine.</p>
-      </div>
-    </div>
-    <a class="repo-link" href="https://github.com/lokeshgupta22/EmailAssist">View the source</a>
-  </header>
-
-  <main>
-    <section class="notice" role="note">
-      <strong>This is a recorded demo, not a live application.</strong>
-      <p>
-        EmailAssist runs a language model on your own machine, which a static
-        site cannot do. So every result below is genuine output from the real
-        pipeline, captured by running it locally against the project's own test
-        threads &mdash; <a href="https://github.com/lokeshgupta22/EmailAssist/blob/main/demo/capture.py">the script that captured it</a>
-        is in the repository, and so is
-        <a href="https://github.com/lokeshgupta22/EmailAssist/blob/main/demo/results.json">the raw data</a>.
-        Nothing here is written by hand. The interface is the real one: this
-        page loads the same rendering code the application uses.
-      </p>
-      <p class="notice-meta" id="capture-meta"></p>
-    </section>
-
-    <section aria-labelledby="picker-heading">
-      <h2 id="picker-heading">Pick a thread</h2>
-      <p class="picker-help">
-        The last four are the interesting ones &mdash; they are attacks and
-        privacy cases, not ordinary mail.
-      </p>
-      <ul id="picker" class="picker"></ul>
-    </section>
-
-    <section id="result" class="result" hidden aria-labelledby="result-heading">
-      <h2 id="result-heading" class="visually-hidden">Analysis</h2>
-
-      <div id="banners" class="banners"></div>
-
-      <article class="card card--primary">
-        <div class="card-head">
-          <h3 id="result-subject"></h3>
-          <span id="urgency" class="badge"></span>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">✉</span>
+        <div>
+          <p class="brand-name">EmailAssist</p>
+          <p class="brand-tag">Recorded demo</p>
         </div>
-        <p id="summary-text" class="summary-text"></p>
-        <div class="next-step">
-          <span class="next-step-label">Do this next</span>
-          <p id="next-step-text"></p>
+      </div>
+
+      <button type="button" id="new-analysis-button" class="button button--primary sidebar-new">
+        + New analysis
+      </button>
+
+      <div class="health" role="status">
+        <span class="dot dot--bad"></span>
+        <span>no local model on this site &mdash; see History</span>
+      </div>
+
+      <div class="history" aria-labelledby="history-heading">
+        <div class="history-head">
+          <h2 id="history-heading">History</h2>
         </div>
-      </article>
-
-      <div class="grid">
-        <article class="card" id="actions-card">
-          <h3>Action items</h3>
-          <ul id="action-items" class="action-items"></ul>
-        </article>
-
-        <article class="card" id="points-card">
-          <h3>Key points</h3>
-          <ul id="key-points" class="bullets"></ul>
-        </article>
-
-        <article class="card" id="facts-card">
-          <h3>Checked facts <span class="hint">found by code, not by the model</span></h3>
-          <dl id="facts" class="facts"></dl>
-        </article>
-
-        <article class="card" id="attachments-card">
-          <h3>Attachments</h3>
-          <ul id="attachments" class="attachments"></ul>
-        </article>
+        <p class="sidebar-hint">
+          Fifteen threads analysed by the real pipeline, including four
+          attacks and privacy cases. Pick one to see the output.
+        </p>
+        <ul id="history-list" class="history-list"></ul>
       </div>
 
-      <p id="provenance" class="provenance"></p>
+      <p class="sidebar-footer" id="capture-meta"></p>
+    </aside>
 
-      <details class="source">
-        <summary>Show the raw <code>.eml</code> file this came from</summary>
-        <p class="source-note">Exactly as it arrived, transfer encoding and all &mdash; this is what the parser is handed.</p>
-        <pre id="source-text"></pre>
-      </details>
-    </section>
+    <main class="workspace">
+      <section id="upload-view" aria-labelledby="upload-heading">
+        <h1 id="upload-heading">Analyse a thread</h1>
+        <p class="view-tagline">Drop in an exported email thread and get a summary, action items and what to do next &mdash; entirely on your own machine.</p>
 
-    <section class="explainer">
-      <h2>Why this is not just an API call</h2>
-      <div class="explainer-grid">
-        <article>
-          <h3>The model is one stage of eight</h3>
+        <div class="notice" role="note">
+          <strong>This is a recorded demo, not a live application.</strong>
           <p>
-            Dates, deadlines, participants, unanswered questions and how long a
-            thread has waited are all found by ordinary code, then handed to the
-            model as ground truth <em>and</em> shown to you directly. A deadline
-            on screen is one a program found in the text.
+            EmailAssist analyses your mail with a language model running on
+            <em>your</em> machine &mdash; a static site has nowhere to run one,
+            so the button below is real but disabled. Every result in
+            <strong>History</strong> is genuine output from the real pipeline,
+            captured by running it locally against the project's own test
+            threads &mdash;
+            <a href="https://github.com/lokeshgupta22/EmailAssist/blob/main/demo/capture.py">the script that captured it</a>
+            is in the repository, and so is
+            <a href="https://github.com/lokeshgupta22/EmailAssist/blob/main/demo/results.json">the raw data</a>.
+            <a href="https://github.com/lokeshgupta22/EmailAssist">Clone the repo</a>
+            and run <code>make setup &amp;&amp; make model &amp;&amp; make run</code> to
+            try it on your own threads.
           </p>
-        </article>
-        <article>
-          <h3>Nothing it says is taken on trust</h3>
-          <p>
-            Every date, amount and address in the summary is checked against the
-            source. Anything that cannot be traced back is shown as unverified,
-            with the specifics.
-          </p>
-        </article>
-        <article>
-          <h3>Attacks are detected and defused</h3>
-          <p>
-            When an email tries to instruct the assistant, you are told, the
-            model is warned before it reads, and the recommended action is
-            replaced deterministically &mdash; because during evaluation the
-            model described an attack correctly and then advised complying
-            with it.
-          </p>
-        </article>
-        <article>
-          <h3>Attachments are guilty until proven innocent</h3>
-          <p>
-            File types come from content, never a filename. Macros, zip bombs
-            and traversal entries are refused, and the readers that do run live
-            in a separate process with capped CPU, capped memory and no ability
-            to write to disk.
-          </p>
-        </article>
-      </div>
-    </section>
+        </div>
 
-    <section class="numbers">
-      <h2>Measured, not asserted</h2>
-      <div class="numbers-grid">
-        <div><strong>15/15</strong><span>golden dataset cases, reproduced on two runs</span></div>
-        <div><strong>390</strong><span>tests, 97% line coverage</span></div>
-        <div><strong>~18s</strong><span>per thread on an 8&nbsp;GB M1, fully offline</span></div>
-        <div><strong>7&nbsp;&rarr;&nbsp;15</strong><span>eval score before and after the fixes it prompted</span></div>
-      </div>
-      <p class="numbers-note">
-        Fifteen cases is a small dataset written by one person, so it measures
-        the failures that were anticipated, not general accuracy. It earns its
-        keep by catching regressions and by having found real bugs.
-      </p>
-    </section>
-  </main>
+        <div id="dropzone" class="dropzone is-disabled" aria-disabled="true">
+          <p class="dropzone-title">Drop <code>.eml</code> files here</p>
+          <p class="dropzone-help">
+            Needs the local model &mdash; not available on this site.
+          </p>
+        </div>
+        <div class="actions">
+          <button type="button" class="button button--primary" disabled>
+            Analyse thread
+          </button>
+        </div>
+      </section>
+
+      <section id="result" class="result" hidden aria-labelledby="result-heading">
+        <h2 id="result-heading" class="visually-hidden">Analysis</h2>
+
+        <div id="banners" class="banners"></div>
+
+        <article class="card card--primary">
+          <div class="card-head">
+            <h3 id="result-subject"></h3>
+            <span id="urgency" class="badge"></span>
+          </div>
+          <p id="summary-text" class="summary-text"></p>
+          <div class="next-step">
+            <span class="next-step-label">Do this next</span>
+            <p id="next-step-text"></p>
+          </div>
+        </article>
+
+        <div class="grid">
+          <article class="card" id="actions-card">
+            <h3>Action items</h3>
+            <ul id="action-items" class="action-items"></ul>
+          </article>
+
+          <article class="card" id="points-card">
+            <h3>Key points</h3>
+            <ul id="key-points" class="bullets"></ul>
+          </article>
+
+          <article class="card" id="facts-card">
+            <h3>Checked facts <span class="hint">found by code, not by the model</span></h3>
+            <dl id="facts" class="facts"></dl>
+          </article>
+
+          <article class="card" id="attachments-card">
+            <h3>Attachments</h3>
+            <ul id="attachments" class="attachments"></ul>
+          </article>
+        </div>
+
+        <p id="provenance" class="provenance"></p>
+
+        <details class="source">
+          <summary>Show the raw <code>.eml</code> file this came from</summary>
+          <p class="source-note">Exactly as it arrived, transfer encoding and all &mdash; this is what the parser is handed.</p>
+          <pre id="source-text"></pre>
+        </details>
+      </section>
+
+      <section class="explainer">
+        <h2>Why this is not just an API call</h2>
+        <div class="explainer-grid">
+          <article>
+            <h3>The model is one stage of eight</h3>
+            <p>
+              Dates, deadlines, participants, unanswered questions and how long a
+              thread has waited are all found by ordinary code, then handed to the
+              model as ground truth <em>and</em> shown to you directly. A deadline
+              on screen is one a program found in the text.
+            </p>
+          </article>
+          <article>
+            <h3>Nothing it says is taken on trust</h3>
+            <p>
+              Every date, amount and address in the summary is checked against the
+              source. Anything that cannot be traced back is shown as unverified,
+              with the specifics.
+            </p>
+          </article>
+          <article>
+            <h3>Attacks are detected and defused</h3>
+            <p>
+              When an email tries to instruct the assistant, you are told, the
+              model is warned before it reads, and the recommended action is
+              replaced deterministically &mdash; because during evaluation the
+              model described an attack correctly and then advised complying
+              with it.
+            </p>
+          </article>
+          <article>
+            <h3>Attachments are guilty until proven innocent</h3>
+            <p>
+              File types come from content, never a filename. Macros, zip bombs
+              and traversal entries are refused, and the readers that do run live
+              in a separate process with capped CPU, capped memory and no ability
+              to write to disk.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="numbers">
+        <h2>Measured, not asserted</h2>
+        <div class="numbers-grid">
+          <div><strong>15/15</strong><span>golden dataset cases, reproduced on two runs</span></div>
+          <div><strong>390</strong><span>tests, 97% line coverage</span></div>
+          <div><strong>~18s</strong><span>per thread on an 8&nbsp;GB M1, fully offline</span></div>
+          <div><strong>7&nbsp;&rarr;&nbsp;15</strong><span>eval score before and after the fixes it prompted</span></div>
+        </div>
+        <p class="numbers-note">
+          Fifteen cases is a small dataset written by one person, so it measures
+          the failures that were anticipated, not general accuracy. It earns its
+          keep by catching regressions and by having found real bugs.
+        </p>
+      </section>
+    </main>
+  </div>
 
   <footer>
     <p>
