@@ -7,11 +7,15 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = PROJECT_ROOT / "app"
+DEMO_DIR = PROJECT_ROOT / "demo"
 
 # Hosts that may legitimately appear: the loopback model endpoint, and XML
 # namespace identifiers, which are names rather than addresses anything fetches.
 _ALLOWED = re.compile(
     r"127\.0\.0\.1|localhost|schemas\.openxmlformats\.org|www\.w3\.org|example\.com"
+    # The demo page links out to the repository and to Ollama's site; a link is
+    # not a load, and neither is fetched by the page.
+    r"|github\.com/lokeshgupta22|ollama\.com|openapi\.vercel\.sh"
 )
 _URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
 
