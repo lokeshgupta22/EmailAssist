@@ -204,6 +204,7 @@ code { font-family: var(--mono); font-size: .92em; }
 .banner--danger { background: var(--high-soft); border-color: var(--high); color: var(--high); }
 .banner--warn { background: var(--medium-soft); border-color: var(--medium); color: var(--medium); }
 .banner strong { display: block; }
+.banner-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 
 .card {
   background: var(--panel);

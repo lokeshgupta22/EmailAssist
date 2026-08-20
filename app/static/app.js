@@ -134,8 +134,16 @@ function renderBanners(result) {
   const banners = el("banners");
   banners.replaceChildren();
 
+  // One email often trips several detectors at once. Grouping by kind keeps
+  // the warning to a single banner while still listing every finding.
+  const byKind = new Map();
   result.security_flags.forEach((flag) => {
-    banners.append(banner("danger", titleForFlag(flag.kind), flag.detail));
+    if (!byKind.has(flag.kind)) byKind.set(flag.kind, []);
+    byKind.get(flag.kind).push(flag.detail);
+  });
+
+  byKind.forEach((details, kind) => {
+    banners.append(banner("danger", titleForFlag(kind), details));
   });
 
   if (result.unverified_claims.length > 0) {
@@ -175,12 +183,28 @@ function titleForFlag(kind) {
 function banner(tone, title, detail) {
   const box = document.createElement("div");
   box.className = `banner banner--${tone}`;
+
   const text = document.createElement("div");
   const strong = document.createElement("strong");
   strong.textContent = title;
-  const body = document.createElement("span");
-  body.textContent = detail;
-  text.append(strong, body);
+  text.append(strong);
+
+  const details = Array.isArray(detail) ? detail : [detail];
+  if (details.length === 1) {
+    const body = document.createElement("span");
+    body.textContent = details[0];
+    text.append(body);
+  } else {
+    const list = document.createElement("ul");
+    list.className = "banner-list";
+    details.forEach((line) => {
+      const row = document.createElement("li");
+      row.textContent = line;
+      list.append(row);
+    });
+    text.append(list);
+  }
+
   box.append(text);
   return box;
 }
