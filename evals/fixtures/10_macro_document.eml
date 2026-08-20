@@ -1,0 +1,31 @@
+Subject: Please enable content
+From: hr@peoplefirst.example.com
+To: me@myagency.example.com
+Date: Wed, 19 Aug 2026 13:30:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============7747662406103881870=="
+
+--===============7747662406103881870==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+The updated policy is attached. Please enable content to read it.
+
+--===============7747662406103881870==
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="policy.docx"
+MIME-Version: 1.0
+
+UEsDBBQAAAAAAFJ8FF0B7joCkgAAAJIAAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbDw/eG1sIHZl
+cnNpb249IjEuMCI/PjxUeXBlcz48T3ZlcnJpZGUgUGFydE5hbWU9Ii93b3JkL2RvY3VtZW50Lnht
+bCIgQ29udGVudFR5cGU9ImFwcGxpY2F0aW9uL3ZuZC5tcy13b3JkLmRvY3VtZW50Lm1hY3JvRW5h
+YmxlZC5tYWluK3htbCIvPjwvVHlwZXM+UEsDBBQAAAAAAFJ8FF1fW9FMCwAAAAsAAAARAAAAd29y
+ZC9kb2N1bWVudC54bWw8ZG9jdW1lbnQvPlBLAwQUAAAAAABSfBRdVN/1tQ4AAAAOAAAAEwAAAHdv
+cmQvdmJhUHJvamVjdC5iaW4AbWFjcm8gcGF5bG9hZFBLAQIUAxQAAAAAAFJ8FF0B7joCkgAAAJIA
+AAATAAAAAAAAAAAAAACAAQAAAABbQ29udGVudF9UeXBlc10ueG1sUEsBAhQDFAAAAAAAUnwUXV9b
+0UwLAAAACwAAABEAAAAAAAAAAAAAAIABwwAAAHdvcmQvZG9jdW1lbnQueG1sUEsBAhQDFAAAAAAA
+UnwUXVTf9bUOAAAADgAAABMAAAAAAAAAAAAAAIAB/QAAAHdvcmQvdmJhUHJvamVjdC5iaW5QSwUG
+AAAAAAMAAwDBAAAAPAEAAAAA
+
+--===============7747662406103881870==--
