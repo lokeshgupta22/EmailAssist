@@ -1,8 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
   "outputDirectory": "demo",
+
   "cleanUrls": true,
   "trailingSlash": false,
+
   "headers": [
     {
       "source": "/(.*)",
@@ -14,7 +20,7 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" }
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
       ]
     }
   ]

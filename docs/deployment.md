@@ -38,17 +38,54 @@ Two files are copies, because Vercel serves the directory as-is and cannot
 reach outside it. Copies go stale, so `demo/sync_assets.py` is the only way
 they are updated and `tests/test_demo.py` fails if they drift.
 
+## Stopping Vercel from deploying the application
+
+The first attempt failed, and the failure is worth recording because it is the
+same mistake the whole project is arranged to avoid.
+
+Vercel detects frameworks automatically. It found `app/main.py`, recognised a
+FastAPI application, ignored the static configuration and deployed it as a
+serverless function. The function then crashed on its first request:
+
+```
+ModuleNotFoundError: No module named 'fastapi'
+```
+
+The missing dependency is beside the point. Even with every dependency
+installed it could not have worked: there is no Ollama in a Vercel function, no
+persistent process to hold a model, and no 2.5 GB of room to put one.
+
+Two independent measures stop it:
+
+1. `vercel.json` sets `"framework": null`, which disables preset detection and
+   overrides whatever the project settings hold.
+2. `.vercelignore` uses the allowlist form — ignore everything, re-include only
+   `demo` and `vercel.json` — so `app/` and `requirements.txt` are never
+   uploaded. There is nothing left for detection to find.
+
+`tests/test_demo.py` asserts both, so a later change cannot quietly turn the
+application back into a function.
+
 ## Deploying it
 
 ### Through the Vercel dashboard
 
 1. Go to [vercel.com/new](https://vercel.com/new) and import
    `lokeshgupta22/EmailAssist`.
-2. Leave every setting alone. `vercel.json` already sets the output directory
-   to `demo` and there is no build command to configure.
-3. Deploy.
+2. Set **Framework Preset** to **Other**. It may otherwise be pre-filled from
+   detection; `vercel.json` overrides it, but there is no reason to leave a
+   contradiction in the settings.
+3. Leave **Root Directory** as `./` — `vercel.json` lives there and points the
+   output at `demo`.
+4. Leave Build and Install commands empty.
+5. Deploy.
 
 Pushing to `main` redeploys automatically after that.
+
+If a project already exists from a failed import, open
+**Settings → General**, set Framework Preset to **Other**, clear any Build and
+Install command overrides, then **Deployments → Redeploy** with the build cache
+disabled.
 
 ### From the command line
 

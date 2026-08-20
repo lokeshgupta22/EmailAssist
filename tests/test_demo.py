@@ -11,11 +11,12 @@ DEMO_DIR = PROJECT_ROOT / "demo"
 STATIC_DIR = PROJECT_ROOT / "app" / "static"
 RESULTS = DEMO_DIR / "results.json"
 
-pytestmark = pytest.mark.skipif(
+_needs_capture = pytest.mark.skipif(
     not RESULTS.is_file(), reason="demo data not captured; run python -m demo.capture"
 )
 
 
+@_needs_capture
 class TestSharedAssets:
     def test_the_demo_copies_match_their_sources(self):
         from demo.sync_assets import out_of_date
@@ -42,6 +43,7 @@ class TestSharedAssets:
             ), f"the renderer writes to #{element_id}, which the demo page does not have"
 
 
+@_needs_capture
 class TestRecordedData:
     @pytest.fixture
     def data(self) -> dict:
@@ -91,6 +93,7 @@ class TestRecordedData:
             assert thread["source"] == fixture.read_text(encoding="utf-8", errors="replace")
 
 
+@_needs_capture
 class TestHonesty:
     def test_the_page_says_plainly_that_it_is_recorded(self):
         html = (DEMO_DIR / "index.html").read_text().lower()
@@ -104,6 +107,7 @@ class TestHonesty:
         assert "demo/results.json" in html
 
 
+@_needs_capture
 class TestStillLocalOnly:
     def test_the_demo_loads_no_remote_asset(self):
         html = (DEMO_DIR / "index.html").read_text()
@@ -122,3 +126,44 @@ class TestStillLocalOnly:
                 assert not url.startswith(
                     ("http://", "https://", "//")
                 ), f"{name} fetches {url} from a remote host"
+
+
+class TestDeploymentConfig:
+    """The deployment must stay a static site, not become a serverless function."""
+
+    @pytest.fixture
+    def config(self) -> dict:
+        return json.loads((PROJECT_ROOT / "vercel.json").read_text())
+
+    def test_no_framework_is_detected(self, config: dict):
+        assert config["framework"] is None, (
+            "leaving framework detection on makes Vercel find app/main.py and try to "
+            "deploy the application as a function, which it cannot be"
+        )
+
+    def test_nothing_is_built_or_installed(self, config: dict):
+        assert config["buildCommand"] is None
+        assert config["installCommand"] is None
+
+    def test_the_demo_directory_is_what_gets_served(self, config: dict):
+        assert config["outputDirectory"] == "demo"
+
+    def test_the_deployed_site_keeps_the_application_security_headers(self, config: dict):
+        headers = {item["key"]: item["value"] for item in config["headers"][0]["headers"]}
+
+        assert "default-src 'self'" in headers["Content-Security-Policy"]
+        assert headers["X-Content-Type-Options"] == "nosniff"
+        assert headers["X-Frame-Options"] == "DENY"
+        assert headers["Referrer-Policy"] == "no-referrer"
+
+    def test_the_application_is_excluded_from_the_upload(self):
+        ignored = (PROJECT_ROOT / ".vercelignore").read_text()
+        allowed = {
+            line.lstrip("!").strip() for line in ignored.splitlines() if line.startswith("!")
+        }
+
+        assert allowed == {"demo", "vercel.json"}, (
+            "only the demo site and its config may be uploaded; "
+            f"currently allowed: {sorted(allowed)}"
+        )
+        assert ignored.splitlines()[0].strip() == "/*" or "/*" in ignored.split("\n")

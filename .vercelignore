@@ -1,0 +1,16 @@
+# Only the recorded demo site is deployed.
+#
+# This uses the documented allowlist form: ignore everything at the project
+# root, then re-include just what the static site needs. Excluding app/ and
+# requirements.txt is not only about upload size - it stops Vercel's framework
+# detection finding a FastAPI entrypoint and trying to run the application as a
+# serverless function, which it cannot be. See docs/deployment.md.
+
+/*
+!demo
+!vercel.json
+
+# The demo's Python helpers produce and sync the site; they are development
+# tools and are not part of what gets served.
+demo/*.py
+demo/__pycache__
