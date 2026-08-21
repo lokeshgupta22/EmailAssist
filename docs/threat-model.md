@@ -93,3 +93,8 @@ Being explicit about the gaps matters more than the list above.
 - **Multi-user deployment.** This is a single-user, local tool. There is no
   authentication, and the history is not partitioned. Exposing it on a network
   would need both.
+- **The attachment sandbox's resource limits, on native Windows.** They are
+  applied with the POSIX `resource` module (`app/pipeline/_extract_worker.py`),
+  which does not exist on Windows; the import failure is caught and the limits
+  are simply skipped there. The process-isolation and timeout still apply on
+  every platform - only the CPU/memory/file-handle caps are POSIX-only.
