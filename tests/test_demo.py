@@ -81,6 +81,19 @@ class TestRecordedData:
         assert "suspicious" in summary["suggested_next_step"].lower()
         assert summary["action_items"] == []
 
+    def test_a_flagged_thread_contributes_no_tasks(self, data: dict):
+        """The aggregated task list rests on this.
+
+        Guards clear the action items of a thread caught attempting prompt
+        injection, so work an attacker planted cannot reach the Tasks page,
+        where it would be stripped of the banner that says not to trust it.
+        """
+        for thread in data["threads"]:
+            if thread["result"]["security_flags"]:
+                assert (
+                    thread["result"]["summary"]["action_items"] == []
+                ), f"{thread['id']} is flagged, so it must contribute nothing to the task list"
+
     def test_the_disguised_executable_is_recorded_as_rejected(self, data: dict):
         by_id = {thread["id"]: thread for thread in data["threads"]}
         attachments = by_id["09_disguised_executable"]["result"]["attachments"]
@@ -109,7 +122,7 @@ class TestHonesty:
 
 @_needs_capture
 class TestStillLocalOnly:
-    @pytest.mark.parametrize("page", ["index.html", "about.html"])
+    @pytest.mark.parametrize("page", ["index.html", "tasks.html", "about.html"])
     def test_the_demo_loads_no_remote_asset(self, page: str):
         html = (DEMO_DIR / page).read_text()
 
@@ -121,7 +134,7 @@ class TestStillLocalOnly:
             ), f"{reference} is loaded from a remote host"
 
     def test_the_demo_scripts_make_no_remote_requests(self):
-        for name in ("demo.js", "about.js", "render.js"):
+        for name in ("demo.js", "about.js", "tasks.js", "history.js", "render.js"):
             source = (DEMO_DIR / name).read_text()
             for url in re.findall(r'fetch\(\s*["\'`]([^"\'`]+)', source):
                 assert not url.startswith(

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Tasks &mdash; EmailAssist</title>
+  <meta name="description" content="Every action item the pipeline found, aggregated across analysed threads.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <rect x="2" y="4.5" width="20" height="14" rx="2.5" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M3 6.2l9 6.3 9-6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="18.5" cy="16.5" r="4.6" fill="var(--side-bg)"/>
+            <path d="M16.6 16.6l1.3 1.3 2.3-2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <div>
+          <p class="brand-name">EmailAssist</p>
+          <p class="brand-tag">Recorded demo</p>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary">
+        <a href="index.html" class="sidebar-nav-link">Workspace</a>
+        <a href="tasks.html" class="sidebar-nav-link is-active">Tasks</a>
+        <a href="about.html" class="sidebar-nav-link">About</a>
+      </nav>
+
+      <a href="index.html" class="button button--primary sidebar-new">+ New analysis</a>
+
+      <div class="health" role="status">
+        <span class="dot dot--bad"></span>
+        <span>no local model on this site &mdash; see History</span>
+      </div>
+
+      <div class="history" aria-labelledby="history-heading">
+        <div class="history-head">
+          <h2 id="history-heading">History</h2>
+        </div>
+        <p class="sidebar-hint">
+          Fifteen threads analysed by the real pipeline, including four
+          attacks and privacy cases. Pick one to see the output.
+        </p>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+
+      <p class="sidebar-footer" id="capture-meta"></p>
+    </aside>
+
+    <main class="workspace">
+      <section aria-labelledby="tasks-heading">
+        <h1 id="tasks-heading" class="page-title">Tasks</h1>
+        <p class="view-tagline">
+          Every action item the pipeline found, from every thread you have
+          analysed, in one list.
+        </p>
+
+        <div class="notice" role="note">
+          <strong>Recorded, like the rest of this demo.</strong>
+          <p>
+            These are the real action items the pipeline extracted from the
+            fifteen test threads. In the real application ticking one is saved
+            to your local database and stays ticked; here there is no database,
+            so a tick lasts until you reload.
+          </p>
+        </div>
+
+        <div class="tasks-toolbar">
+          <div class="segmented" role="group" aria-label="Whose tasks to show">
+            <button type="button" class="segment is-active" data-owner="me">Yours</button>
+            <button type="button" class="segment" data-owner="them">Theirs</button>
+            <button type="button" class="segment" data-owner="all">All</button>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="show-done"> Show completed
+          </label>
+        </div>
+
+        <p id="tasks-summary" class="tasks-summary" aria-live="polite"></p>
+        <div id="tasks-groups"></div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <p>
+      Runs locally &mdash; the real application works with the network switched
+      off. <a href="https://github.com/lokeshgupta22/EmailAssist">Source, threat model and build log on GitHub.</a>
+    </p>
+  </footer>
+
+  <script src="render.js"></script>
+  <script src="history.js"></script>
+  <script src="tasks.js"></script>
+</body>
+</html>
