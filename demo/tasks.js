@@ -43,8 +43,8 @@ function describeDue(due) {
   if (!due) return "";
   const days = daysUntil(due);
   if (Number.isNaN(days)) return due;
-  if (days === 0) return "due that day";
-  if (days === 1) return "due the next day";
+  if (days === 0) return "due today";
+  if (days === 1) return "due tomorrow";
   if (days === -1) return "1 day late";
   if (days < 0) return `${-days} days late`;
   return `due in ${days} days`;
@@ -90,7 +90,16 @@ function renderSummary(tasks) {
   }
 
   const count = `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`;
-  summary.textContent = overdue > 0 ? `${count} · ${overdue} overdue` : count;
+  const counts = overdue > 0 ? `${count} · ${overdue} overdue` : count;
+
+  // "today", "overdue" and the rest are relative to when these threads were
+  // analysed, not to the reader's own clock. Saying so once is what lets the
+  // rest of the page use the same plain wording the real application does.
+  summary.textContent = `${counts} · as of ${state.referenceDate.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })}, when these threads were analysed`;
   summary.classList.toggle("has-overdue", overdue > 0);
 }
 
