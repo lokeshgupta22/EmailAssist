@@ -26,9 +26,10 @@ need one should not depend on one.
 
 ## See it without installing anything
 
-There is a **recorded demo** you can click through: pick any of the project's
-fifteen test threads — including the ones carrying attacks — and see exactly
-what the real pipeline produced for it.
+There is a **recorded demo** you can click through, live at
+<https://email-assist-omega.vercel.app/>: pick any of the project's fifteen
+test threads — including the ones carrying attacks — and see exactly what the
+real pipeline produced for it.
 
 It is recorded rather than live, and says so on the page. EmailAssist runs a
 language model on your own machine, which a static host cannot do. So instead
