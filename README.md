@@ -1,8 +1,9 @@
 # EmailAssist
 
 Drop an email thread in, get back a summary, the action items, and one clear
-next step. It runs entirely on your own machine — you can unplug the network
-and it still works.
+next step. Everything it finds collects into a single task list across every
+thread you have analysed. It runs entirely on your own machine — you can unplug
+the network and it still works.
 
 A small language model does one job inside a pipeline of eight stages. The
 other seven are ordinary, testable code, because most of the work in
@@ -160,6 +161,28 @@ class of mistake.
 | `pip install` fails with a syntax or version error | Check `python3 --version` (or `python --version`) is 3.10 or newer. |
 | Port 8000 is already in use | Add `--port 8001` (or any free port) to the `uvicorn` command. |
 | A PDF/DOCX attachment behaves oddly on Windows | Expected, not a bug: the attachment reader's CPU/memory caps are POSIX-only and are silently skipped on native Windows. The process isolation and timeout still apply — see [docs/threat-model.md](docs/threat-model.md). |
+
+---
+
+## Everything you owe, in one list
+
+One thread at a time answers "what does this need?". The **Tasks** page answers
+the question you actually have, which is "what do I owe across all of them, and
+what is late": every action item from every analysed thread, grouped by when it
+is due — overdue, today, this week, later, no date.
+
+It defaults to the items you own, with a filter for the ones waiting on somebody
+else, and every row links back to the analysis it came from, so a task is never
+separated from the thread that justifies it.
+
+Ticking one is saved to the local database and shows the same either way you
+look at it — from the task list or from inside the analysis. Deleting an
+analysis takes its ticks with it, so "delete everything" stays complete.
+
+One thing worth knowing: a thread caught trying to give instructions to an
+assistant has its action items cleared by the guardrails, so work planted by an
+attacker never reaches this page — where it would appear without the banner
+warning you not to trust it.
 
 ---
 

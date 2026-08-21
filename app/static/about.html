@@ -54,9 +54,37 @@
         <h1 id="about-heading" class="page-title">About EmailAssist</h1>
         <p class="view-tagline">
           Drop an email thread in, get back a summary, the action items, and
-          one clear next step. It runs entirely on this machine &mdash; you
-          can unplug the network and it still works.
+          one clear next step. Everything it finds collects into a single task
+          list across every thread you have analysed. It runs entirely on this
+          machine &mdash; you can unplug the network and it still works.
         </p>
+      </section>
+
+      <section class="about-section" aria-labelledby="views-heading">
+        <h2 id="views-heading">Two ways to look at it</h2>
+        <div class="explainer-grid">
+          <article>
+            <h3>Workspace &mdash; one thread at a time</h3>
+            <p>
+              Drop in an exported <code>.eml</code> thread and get the summary,
+              what to do next, the action items, and the facts a program
+              checked rather than the model recalled &mdash; including anything
+              that did not check out. Past analyses stay in the sidebar and
+              reopen exactly as they were.
+            </p>
+          </article>
+          <article>
+            <h3>Tasks &mdash; everything you owe</h3>
+            <p>
+              One thread answers "what does this need?". The Tasks page answers
+              the question you actually have: what you owe across all of them,
+              and what is late. Every action item from every analysed thread,
+              grouped overdue / today / this week / later, filtered to the ones
+              you own, each linking back to the thread that justifies it.
+              Ticking one is saved locally and looks the same from either view.
+            </p>
+          </article>
+        </div>
       </section>
 
       <section class="about-section" aria-labelledby="pipeline-heading">
@@ -156,7 +184,9 @@
               model is warned before it reads, and the recommended action is
               replaced deterministically &mdash; because during evaluation the
               model described an attack correctly and then advised complying
-              with it.
+              with it. Its action items are cleared too, so work planted by an
+              attacker can never surface on the Tasks page stripped of the
+              banner warning you not to trust it.
             </p>
           </article>
         </div>
