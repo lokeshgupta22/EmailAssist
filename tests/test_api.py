@@ -259,3 +259,85 @@ class TestDefaultWiring:
 
     def test_deleting_an_absent_entry_gives_a_not_found(self, store: HistoryStore):
         assert client_for(store).delete("/api/history/999").status_code == 404
+
+
+class TestTasks:
+    """The aggregated task list, and ticking items off."""
+
+    def test_tasks_are_collected_from_every_analysis(self, store: HistoryStore):
+        client = client_for(store)
+        client.post("/api/analyse", files=upload(subject="First"))
+        client.post("/api/analyse", files=upload(subject="Second"))
+
+        tasks = client.get("/api/tasks").json()["tasks"]
+
+        assert len(tasks) == 2, "one action item from each analysis"
+        assert {task["thread_subject"] for task in tasks} == {"First", "Second"}
+        assert all(task["task"] == "Send the report" for task in tasks)
+
+    def test_a_task_carries_what_the_page_needs_to_show_and_link_it(self, store: HistoryStore):
+        client = client_for(store)
+        entry_id = client.post("/api/analyse", files=upload(subject="Q3")).json()["id"]
+
+        task = client.get("/api/tasks").json()["tasks"][0]
+
+        assert task["entry_id"] == entry_id, "the page links back to the full analysis with this"
+        assert task["index"] == 0
+        assert task["owner"] == "me"
+        assert task["done"] is False
+        assert task["urgency"] == "medium"
+        assert task["thread_subject"] == "Q3"
+        assert task["created_at"]
+
+    def test_there_are_no_tasks_before_anything_is_analysed(self, store: HistoryStore):
+        assert client_for(store).get("/api/tasks").json() == {"tasks": []}
+
+    def test_a_task_can_be_ticked_and_unticked(self, store: HistoryStore):
+        client = client_for(store)
+        entry_id = client.post("/api/analyse", files=upload()).json()["id"]
+
+        assert client.put(f"/api/tasks/{entry_id}/0", json={"done": True}).status_code == 204
+        assert client.get("/api/tasks").json()["tasks"][0]["done"] is True
+
+        assert client.put(f"/api/tasks/{entry_id}/0", json={"done": False}).status_code == 204
+        assert client.get("/api/tasks").json()["tasks"][0]["done"] is False
+
+    def test_the_analysis_view_sees_the_same_ticks_as_the_task_list(self, store: HistoryStore):
+        client = client_for(store)
+        entry_id = client.post("/api/analyse", files=upload()).json()["id"]
+
+        client.put(f"/api/tasks/{entry_id}/0", json={"done": True})
+
+        entry = client.get(f"/api/history/{entry_id}").json()
+        assert entry["done_indexes"] == [0], "reopening an analysis must not contradict the list"
+
+    def test_ticking_something_that_does_not_exist_is_refused(self, store: HistoryStore):
+        client = client_for(store)
+        entry_id = client.post("/api/analyse", files=upload()).json()["id"]
+
+        assert client.put("/api/tasks/9999/0", json={"done": True}).status_code == 404
+        assert client.put(f"/api/tasks/{entry_id}/7", json={"done": True}).status_code == 404
+        assert client.put(f"/api/tasks/{entry_id}/-1", json={"done": True}).status_code == 404
+
+    def test_deleting_an_analysis_removes_its_tasks(self, store: HistoryStore):
+        client = client_for(store)
+        entry_id = client.post("/api/analyse", files=upload()).json()["id"]
+        client.put(f"/api/tasks/{entry_id}/0", json={"done": True})
+
+        client.delete(f"/api/history/{entry_id}")
+
+        assert client.get("/api/tasks").json() == {"tasks": []}
+
+    def test_purging_the_history_empties_the_task_list(self, store: HistoryStore):
+        client = client_for(store)
+        client.post("/api/analyse", files=upload())
+
+        client.delete("/api/history")
+
+        assert client.get("/api/tasks").json() == {"tasks": []}
+
+    def test_the_tasks_page_is_served(self, store: HistoryStore):
+        response = client_for(store).get("/tasks")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]

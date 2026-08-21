@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models import AnalysisResult, SecurityFlag, Summary, ThreadFacts
+from app.models import ActionItem, AnalysisResult, SecurityFlag, Summary, ThreadFacts
 from app.store import HistoryStore
 
 NOW = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
@@ -144,3 +144,141 @@ class TestStorageSafety:
         entries = store.list_recent()
 
         assert len(entries) == 1, "unreadable rows are skipped rather than crashing the page"
+
+
+def result_with_tasks(*items: tuple[str, str, str | None]) -> AnalysisResult:
+    """A result carrying the given (task, owner, due) action items."""
+    return AnalysisResult(
+        thread_subject="Q3 budget",
+        summary=Summary(
+            summary="A short summary.",
+            key_points=[],
+            action_items=[
+                ActionItem(task=task, owner=owner, due=due) for task, owner, due in items
+            ],
+            suggested_next_step="Send the quote.",
+            urgency="high",
+            waiting_on="me",
+        ),
+        facts=ThreadFacts(),
+        model_used="qwen3:4b",
+    )
+
+
+class TestTasks:
+    def test_action_items_are_listed_with_the_analysis_they_came_from(self, store: HistoryStore):
+        entry_id = store.save(
+            result_with_tasks(("Send the report", "me", "2026-08-25"), ("Chase Bob", "them", None)),
+            created_at=NOW,
+        )
+
+        tasks = store.list_tasks()
+
+        assert [(t.index, t.task, t.owner, t.due) for t in tasks] == [
+            (0, "Send the report", "me", "2026-08-25"),
+            (1, "Chase Bob", "them", None),
+        ]
+        assert all(task.analysis_id == entry_id for task in tasks)
+        assert all(task.thread_subject == "Q3 budget" for task in tasks)
+
+    def test_an_analysis_without_action_items_contributes_none(self, store: HistoryStore):
+        store.save(result_for(), created_at=NOW)
+
+        assert store.list_tasks() == []
+
+    def test_a_task_starts_untick_and_can_be_ticked(self, store: HistoryStore):
+        entry_id = store.save(result_with_tasks(("Send the report", "me", None)), created_at=NOW)
+        assert store.list_tasks()[0].done is False
+
+        store.set_task_done(entry_id, 0, True, at=NOW)
+
+        assert store.list_tasks()[0].done is True
+        assert store.done_indexes(entry_id) == {0}
+
+    def test_ticking_twice_does_not_fail(self, store: HistoryStore):
+        entry_id = store.save(result_with_tasks(("Send the report", "me", None)), created_at=NOW)
+
+        store.set_task_done(entry_id, 0, True, at=NOW)
+        store.set_task_done(entry_id, 0, True, at=NOW)
+
+        assert store.done_indexes(entry_id) == {0}
+
+    def test_a_task_can_be_unticked(self, store: HistoryStore):
+        entry_id = store.save(result_with_tasks(("Send the report", "me", None)), created_at=NOW)
+        store.set_task_done(entry_id, 0, True, at=NOW)
+
+        store.set_task_done(entry_id, 0, False, at=NOW)
+
+        assert store.done_indexes(entry_id) == set()
+
+    def test_ticks_are_kept_apart_per_analysis(self, store: HistoryStore):
+        first = store.save(result_with_tasks(("One", "me", None)), created_at=NOW)
+        second = store.save(result_with_tasks(("Two", "me", None)), created_at=NOW)
+
+        store.set_task_done(first, 0, True, at=NOW)
+
+        assert store.done_indexes(first) == {0}
+        assert store.done_indexes(second) == set()
+
+    def test_counting_action_items_reports_absence_apart_from_emptiness(self, store: HistoryStore):
+        with_items = store.save(result_with_tasks(("One", "me", None)), created_at=NOW)
+        without = store.save(result_for(), created_at=NOW)
+
+        assert store.count_action_items(with_items) == 1
+        assert store.count_action_items(without) == 0
+        assert store.count_action_items(9999) is None, "a missing analysis is not an empty one"
+
+
+class TestTicksAreDeletedWithTheirAnalysis:
+    """Deleting must stay complete: a tick may not outlive its analysis."""
+
+    def test_deleting_an_analysis_removes_its_ticks(self, store: HistoryStore):
+        entry_id = store.save(result_with_tasks(("Send the report", "me", None)), created_at=NOW)
+        store.set_task_done(entry_id, 0, True, at=NOW)
+
+        store.delete(entry_id)
+
+        with store.connect() as connection:
+            assert connection.execute("SELECT COUNT(*) FROM task_state").fetchone()[0] == 0
+
+    def test_purging_removes_every_tick(self, store: HistoryStore):
+        first = store.save(result_with_tasks(("One", "me", None)), created_at=NOW)
+        second = store.save(result_with_tasks(("Two", "me", None)), created_at=NOW)
+        store.set_task_done(first, 0, True, at=NOW)
+        store.set_task_done(second, 0, True, at=NOW)
+
+        store.purge()
+
+        with store.connect() as connection:
+            assert connection.execute("SELECT COUNT(*) FROM task_state").fetchone()[0] == 0
+        assert store.list_tasks() == []
+
+    def test_a_new_analysis_does_not_inherit_a_deleted_one_s_ticks(self, store: HistoryStore):
+        first = store.save(result_with_tasks(("Send the report", "me", None)), created_at=NOW)
+        store.set_task_done(first, 0, True, at=NOW)
+        store.delete(first)
+
+        second = store.save(result_with_tasks(("A different job", "me", None)), created_at=NOW)
+
+        assert second != first, "ids are AUTOINCREMENT, so they are never reused"
+        assert store.list_tasks()[0].done is False
+
+
+class TestExistingDatabasesGainTheTable:
+    def test_a_database_written_before_tasks_existed_still_opens(self, tmp_path: Path):
+        import sqlite3
+
+        path = tmp_path / "history.db"
+        connection = sqlite3.connect(path)
+        connection.executescript(
+            "CREATE TABLE analyses (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "created_at TEXT NOT NULL, subject TEXT NOT NULL, payload TEXT NOT NULL);"
+        )
+        connection.commit()
+        connection.close()
+
+        store = HistoryStore(path)
+        entry_id = store.save(result_with_tasks(("Send the report", "me", None)), created_at=NOW)
+        store.set_task_done(entry_id, 0, True, at=NOW)
+
+        assert store.list_tasks()[0].done is True, "the schema is applied on open, so no migration"

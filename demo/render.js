@@ -20,6 +20,20 @@
 
 const el = (id) => document.getElementById(id);
 
+/* Ticking an action item is persisted by the application, but the demo is a
+   static site with nowhere to persist it. So the state and the handler are
+   supplied by whichever page is drawing: the application passes both, the
+   demo passes neither and its checkboxes simply stay local to the page.
+   Keeping the choice here rather than in two copies of this file is what
+   lets the demo load the application's own renderer unchanged. */
+let actionItemsDone = new Set();
+let onActionItemToggled = null;
+
+function setActionItemState({ done = [], onToggle = null } = {}) {
+  actionItemsDone = new Set(done);
+  onActionItemToggled = onToggle;
+}
+
 /* -------------------------------------------------------------- results */
 
 function renderResult(result) {
@@ -140,6 +154,11 @@ function renderActionItems(items) {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.id = `action-${index}`;
+    checkbox.checked = actionItemsDone.has(index);
+    checkbox.addEventListener("change", () => {
+      row.classList.toggle("is-done", checkbox.checked);
+      if (onActionItemToggled) onActionItemToggled(index, checkbox.checked);
+    });
 
     const label = document.createElement("label");
     label.htmlFor = checkbox.id;
@@ -160,6 +179,7 @@ function renderActionItems(items) {
     }
 
     row.append(checkbox, text);
+    row.classList.toggle("is-done", checkbox.checked);
     list.append(row);
   });
 }

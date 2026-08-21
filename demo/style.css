@@ -137,10 +137,11 @@ footer p { margin: 0; max-width: 760px; }
 
 .sidebar-nav-link {
   flex: 1;
+  min-width: 0;
   text-align: center;
-  padding: 7px 0;
+  padding: 7px 2px;
   border-radius: var(--radius);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--side-ink-soft);
   text-decoration: none;
@@ -366,6 +367,109 @@ main h2 { font-size: 16px; margin: 0 0 4px; }
   display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
   margin-top: 16px;
 }
+
+/* ---------- tasks page ---------- */
+
+.tasks-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.segmented {
+  display: inline-flex;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px;
+}
+
+.segment {
+  font: inherit; font-size: 13px; font-weight: 500;
+  padding: 5px 14px;
+  border: none; border-radius: 4px;
+  background: none; color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.segment:hover { color: var(--ink); }
+.segment.is-active { background: var(--accent-soft); color: var(--accent); }
+
+.toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--ink-soft);
+  cursor: pointer;
+}
+.toggle input { accent-color: var(--accent); }
+
+.tasks-summary {
+  margin: 0 0 20px;
+  font-family: var(--mono); font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.tasks-summary.has-overdue { color: var(--high); }
+
+.task-group { margin-bottom: 26px; }
+
+.task-group-head {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 10px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-soft);
+}
+
+.task-group-count {
+  font-family: var(--mono); font-size: 10.5px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 1px 7px;
+  letter-spacing: 0;
+}
+
+.task-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.task {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.task:hover { border-color: var(--accent); }
+.task input { margin-top: 3px; flex: none; accent-color: var(--accent); }
+
+.task-body { flex: 1; min-width: 0; }
+.task-text { margin: 0; font-size: 14px; }
+
+.task-meta {
+  margin: 3px 0 0;
+  font-size: 12px; color: var(--ink-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.task-due { font-family: var(--mono); color: var(--accent); }
+.task-due.is-late { color: var(--high); font-weight: 600; }
+
+.task-owner {
+  text-transform: uppercase; letter-spacing: .05em;
+  font-size: 10.5px; font-weight: 600;
+}
+
+.task-details {
+  flex: none;
+  font-size: 12.5px; color: var(--accent);
+  text-decoration: none; white-space: nowrap;
+  padding-top: 1px;
+}
+.task-details:hover { text-decoration: underline; }
+
+/* A ticked item stays visible but stops competing for attention. */
+.task.is-done .task-text { text-decoration: line-through; color: var(--ink-soft); }
+.task.is-done .task-due { color: var(--ink-soft); font-weight: 400; }
+
+.action-items li.is-done label { text-decoration: line-through; color: var(--ink-soft); }
+.action-items li.is-done .due { color: var(--ink-soft); }
 
 /* ---------- upload ---------- */
 

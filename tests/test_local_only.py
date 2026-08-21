@@ -38,7 +38,7 @@ class TestNoRemoteEndpoints:
             offenders
         )
 
-    @pytest.mark.parametrize("page", ["index.html", "about.html"])
+    @pytest.mark.parametrize("page", ["index.html", "tasks.html", "about.html"])
     def test_the_page_loads_only_its_own_assets(self, page: str):
         """Every asset load is same-origin. In-page navigation (to / or
         /about) is not a load and is not restricted to /static/, and neither
