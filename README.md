@@ -42,17 +42,92 @@ see is what the real interface draws.
 
 ## Run the real thing
 
-You need [Ollama](https://ollama.com) and Python 3.10 or newer.
+### Prerequisites
+
+- **Python 3.10 or newer** — check with `python3 --version` (macOS/Linux) or
+  `python --version` (Windows).
+- **[Ollama](https://ollama.com)**, to run the model.
+- **About 8 GB of RAM** and **3 GB of free disk** — the default model is a
+  ~2.5 GB download.
+- **git**, to clone the repository.
+
+The commands below are the same shape on macOS, Linux and Windows — the
+underlying tools (`python`, `pip`, `ollama`, `uvicorn`) are identical on every
+platform. `make` is not required anywhere; it is just a shorthand for people
+who already have it (macOS and Linux ship with it; Windows generally does not,
+which is why the raw commands are given first).
+
+### 1. Get the code
 
 ```bash
-make setup
-make model
-make run
+git clone https://github.com/lokeshgupta22/EmailAssist.git
+cd EmailAssist
 ```
 
-Then open <http://127.0.0.1:8000> and drop in a `.eml` file. To export one:
-Gmail → open the thread → ⋮ → *Download message*; Outlook → drag the message to
-a folder.
+### 2. Install and start Ollama
+
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Windows: download the installer from https://ollama.com
+```
+
+macOS and Windows installs run Ollama in the background automatically. On
+Linux, or if a later step says the model is "not reachable", start it
+yourself in its own terminal and leave it running:
+
+```bash
+ollama serve
+```
+
+### 3. Set up the app
+
+```bash
+# macOS / Linux
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+```powershell
+# Windows (PowerShell)
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+If you have `make`, `make setup` does the same thing.
+
+### 4. Pull the model
+
+```bash
+ollama pull qwen3:4b
+```
+
+About 2.5 GB; how long it takes depends on your connection. (`make model` is
+the same command.)
+
+### 5. Run it
+
+```bash
+# macOS / Linux
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# Windows
+.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+(`make run` is the same.) Then open <http://127.0.0.1:8000> and drop in a
+`.eml` file. To export one: Gmail → open the thread → ⋮ → *Download message*;
+Outlook → drag the message to a folder.
 
 There are ready-made examples in `evals/fixtures/` if you would rather not use
 real mail.
@@ -62,14 +137,28 @@ works, because nothing ever leaves the machine.
 
 ### Tell it your address
 
-```bash
-echo "EMAILASSIST_OWNER_ADDRESS=you@yourcompany.com" >> .env
+Add this line to a `.env` file in the project root (create the file if it
+does not already exist):
+
+```
+EMAILASSIST_OWNER_ADDRESS=you@yourcompany.com
 ```
 
 Without this the app has to guess which participant is you, and gets "who is
 waiting on whom" wrong on threads you sent yourself. Every address looks alike
 to a language model; this is one line of configuration that removes a whole
 class of mistake.
+
+### If something goes wrong
+
+| Symptom | Fix |
+|---|---|
+| Sidebar health dot is red / "model not reachable" | Ollama is not running. Run `ollama serve` in a terminal and leave it open, then reload the page. |
+| `ollama: command not found` | Ollama is not installed, or not on your `PATH`. Reinstall from [ollama.com](https://ollama.com). |
+| `make: command not found` | Windows does not ship `make`. Use the raw commands in steps 3–5 above instead. |
+| `pip install` fails with a syntax or version error | Check `python3 --version` (or `python --version`) is 3.10 or newer. |
+| Port 8000 is already in use | Add `--port 8001` (or any free port) to the `uvicorn` command. |
+| A PDF/DOCX attachment behaves oddly on Windows | Expected, not a bug: the attachment reader's CPU/memory caps are POSIX-only and are silently skipped on native Windows. The process isolation and timeout still apply — see [docs/threat-model.md](docs/threat-model.md). |
 
 ---
 
@@ -204,6 +293,9 @@ The short version:
 - **Document parsers run in a process we can afford to lose** — near-empty
   environment, capped CPU and memory, forbidden from writing to disk, killed if
   it overruns. The bytes arrive over a pipe, so no attachment ever touches disk.
+  (The CPU/memory caps are POSIX-only and do not apply on native Windows; the
+  process isolation and timeout do, on every platform — see
+  [docs/threat-model.md](docs/threat-model.md).)
 - **HTML is parsed, never rendered.** Tracking pixels cannot fire, so reading
   mail here does not tell the sender you read it.
 - **Personal data is masked** before storage and before the model, and restored
