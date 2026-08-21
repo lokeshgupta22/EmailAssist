@@ -19,6 +19,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from app.config import Settings, get_settings
 from app.models import AnalysisResult
@@ -54,6 +55,12 @@ _SECURITY_HEADERS = {
 }
 
 SummarizerFactory = Callable[[Settings], object]
+
+
+class TaskUpdate(BaseModel):
+    """The body of a request to tick or untick one action item."""
+
+    done: bool
 
 
 def _default_summarizer(settings: Settings) -> Summarizer:
@@ -139,6 +146,9 @@ def create_app(
             "id": entry.id,
             "created_at": entry.created_at.isoformat(),
             "result": entry.result.model_dump(mode="json"),
+            # Which action items are ticked, so reopening an analysis shows the
+            # same state the tasks page does.
+            "done_indexes": sorted(store.done_indexes(entry.id)),
         }
 
     @app.delete("/api/history/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -150,6 +160,49 @@ def create_app(
     @app.delete("/api/history")
     def purge_history() -> dict:
         return {"deleted": store.purge()}
+
+    # -- tasks ----------------------------------------------------------
+
+    @app.get("/api/tasks")
+    def list_tasks() -> dict:
+        """Every action item across the stored analyses, with its source.
+
+        The history listing deliberately carries only summary fields, so the
+        aggregated view would otherwise need one request per analysis.
+        """
+        return {
+            "tasks": [
+                {
+                    "entry_id": task.analysis_id,
+                    "index": task.index,
+                    "task": task.task,
+                    "owner": task.owner,
+                    "due": task.due,
+                    "done": task.done,
+                    "thread_subject": task.thread_subject,
+                    "created_at": task.created_at.isoformat(),
+                    "urgency": task.urgency,
+                }
+                for task in store.list_tasks(limit=settings.history_limit)
+            ]
+        }
+
+    @app.put("/api/tasks/{entry_id}/{index}", status_code=status.HTTP_204_NO_CONTENT)
+    def set_task_done(entry_id: int, index: int, body: TaskUpdate) -> Response:
+        """Tick or untick one action item.
+
+        A tick aimed at an analysis or an item that no longer exists is
+        refused rather than stored, so a stale page cannot leave state behind
+        that nothing will ever read.
+        """
+        count = store.count_action_items(entry_id)
+        if count is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such analysis")
+        if not 0 <= index < count:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such action item")
+
+        store.set_task_done(entry_id, index, body.done, at=datetime.now(timezone.utc))
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     # -- health ---------------------------------------------------------
 
@@ -168,6 +221,10 @@ def create_app(
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+
+    @app.get("/tasks", include_in_schema=False)
+    def tasks() -> FileResponse:
+        return FileResponse(STATIC_DIR / "tasks.html", media_type="text/html")
 
     @app.get("/about", include_in_schema=False)
     def about() -> FileResponse:

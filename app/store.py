@@ -14,6 +14,13 @@ The schema is deliberately small: an identifier, a timestamp, a subject for the
 listing, and the analysis itself as JSON. The JSON is validated back into an
 :class:`AnalysisResult` on read, so a hand-edited or corrupted row is skipped
 rather than trusted.
+
+A second table records which action items the user has ticked off. It holds no
+content of its own - an analysis id, the item's position within that analysis,
+and when it was ticked - so it cannot widen what a copied database file would
+reveal. It is tied to its analysis with ``ON DELETE CASCADE``, so deleting an
+analysis takes its ticks with it and the "deleting is complete" rule still
+holds.
 """
 
 from __future__ import annotations
@@ -38,6 +45,13 @@ CREATE TABLE IF NOT EXISTS analyses (
     payload    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS task_state (
+    analysis_id INTEGER NOT NULL REFERENCES analyses (id) ON DELETE CASCADE,
+    item_index  INTEGER NOT NULL,
+    done_at     TEXT NOT NULL,
+    PRIMARY KEY (analysis_id, item_index)
+);
 """
 
 _OWNER_ONLY = 0o600
@@ -52,6 +66,27 @@ class HistoryEntry:
     created_at: datetime
     thread_subject: str
     result: AnalysisResult
+
+
+@dataclass(frozen=True)
+class Task:
+    """One action item, with the analysis it came from.
+
+    ``index`` is the item's position in its analysis. A stored analysis is
+    never rewritten, so that position is a stable identifier; and because
+    ``analyses.id`` is AUTOINCREMENT, an id is never reused, so a tick can
+    never end up attached to a different thread's work.
+    """
+
+    analysis_id: int
+    index: int
+    task: str
+    owner: str
+    due: str | None
+    done: bool
+    thread_subject: str
+    created_at: datetime
+    urgency: str
 
 
 class HistoryStore:
@@ -99,6 +134,83 @@ class HistoryStore:
 
         entries = (_to_entry(row) for row in rows)
         return [entry for entry in entries if entry is not None]
+
+    # -- tasks ----------------------------------------------------------
+
+    def list_tasks(self, limit: int = _DEFAULT_LIMIT) -> list[Task]:
+        """Return every action item across recent analyses, newest first.
+
+        The action items live inside each stored analysis rather than in a
+        table of their own, because they are model output: this reads them
+        back out and pairs each with whether it has been ticked.
+        """
+        entries = self.list_recent(limit)
+        if not entries:
+            return []
+
+        done = self._done_indexes([entry.id for entry in entries])
+
+        return [
+            Task(
+                analysis_id=entry.id,
+                index=index,
+                task=item.task,
+                owner=item.owner.value,
+                due=item.due,
+                done=index in done.get(entry.id, ()),
+                thread_subject=entry.thread_subject,
+                created_at=entry.created_at,
+                urgency=entry.result.summary.urgency.value,
+            )
+            for entry in entries
+            for index, item in enumerate(entry.result.summary.action_items)
+        ]
+
+    def count_action_items(self, entry_id: int) -> int | None:
+        """How many action items an analysis has, or None if there is no such analysis.
+
+        Used to reject a tick aimed at an item that does not exist, so a stale
+        page cannot write state that nothing will ever read.
+        """
+        entry = self.get(entry_id)
+        return len(entry.result.summary.action_items) if entry else None
+
+    def set_task_done(self, entry_id: int, index: int, done: bool, *, at: datetime) -> None:
+        """Tick or untick one action item."""
+        with self.connect() as connection:
+            if done:
+                connection.execute(
+                    "INSERT INTO task_state (analysis_id, item_index, done_at) VALUES (?, ?, ?) "
+                    "ON CONFLICT (analysis_id, item_index) "
+                    "DO UPDATE SET done_at = excluded.done_at",
+                    (entry_id, index, at.isoformat()),
+                )
+            else:
+                connection.execute(
+                    "DELETE FROM task_state WHERE analysis_id = ? AND item_index = ?",
+                    (entry_id, index),
+                )
+
+    def done_indexes(self, entry_id: int) -> set[int]:
+        """Which of one analysis's action items have been ticked."""
+        return self._done_indexes([entry_id]).get(entry_id, set())
+
+    def _done_indexes(self, entry_ids: list[int]) -> dict[int, set[int]]:
+        if not entry_ids:
+            return {}
+
+        placeholders = ",".join("?" * len(entry_ids))
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"SELECT analysis_id, item_index FROM task_state "  # noqa: S608 - ids are ints
+                f"WHERE analysis_id IN ({placeholders})",
+                entry_ids,
+            ).fetchall()
+
+        done: dict[int, set[int]] = {}
+        for analysis_id, item_index in rows:
+            done.setdefault(analysis_id, set()).add(item_index)
+        return done
 
     # -- deleting -------------------------------------------------------
 

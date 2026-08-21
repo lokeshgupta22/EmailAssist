@@ -91,7 +91,7 @@ async function analyse(event) {
 
     hide(statusBox);
     state.activeHistoryId = payload.id ?? null;
-    showResult(payload);
+    showResult(payload, { id: payload.id ?? null });
     await sidebarHistory.refresh();
   } catch (error) {
     showStatus(`Could not reach the local server: ${error.message}`, "error");
@@ -102,9 +102,28 @@ async function analyse(event) {
 
 /* ------------------------------------------------------------------ views */
 
-function showResult(result) {
+function showResult(result, { id = null, done = [] } = {}) {
+  // Ticking an item here writes through to the same state the Tasks page
+  // reads, so the two views never disagree about what is still outstanding.
+  setActionItemState({
+    done,
+    onToggle: id === null ? null : (index, isDone) => saveTaskDone(id, index, isDone),
+  });
   hide(uploadView);
   renderResult(result);
+}
+
+async function saveTaskDone(entryId, index, done) {
+  try {
+    await fetch(`/api/tasks/${entryId}/${index}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done }),
+    });
+  } catch {
+    // A tick that could not be saved is not worth interrupting the page for;
+    // the next load simply shows the state that did reach the database.
+  }
 }
 
 function showUploadView() {
@@ -128,7 +147,7 @@ async function openHistoryEntry(id) {
       return;
     }
     const payload = await response.json();
-    showResult(payload.result);
+    showResult(payload.result, { id: payload.id, done: payload.done_indexes || [] });
   } catch (error) {
     showUploadView();
     showStatus(`Could not reach the local server: ${error.message}`, "error");
